@@ -1,0 +1,34 @@
+{
+  "name": "Gitarren-Akkord-Trainer",
+  "short_name": "Akkord-Trainer",
+  "description": "E-Gitarren-Akkorde G, Cadd9, Em7 und Dsus4 lernen, in Echtzeit per Mikrofon bewerten und die Gitarre stimmen.",
+  "lang": "de",
+  "dir": "ltr",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#0f0f1e",
+  "theme_color": "#0f0f1e",
+  "categories": ["education", "music", "utilities"],
+  "icons": [
+    {
+      "src": "icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

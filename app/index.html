@@ -1,0 +1,221 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0f0f1e">
+  <meta name="description" content="Lerne die E-Gitarren-Akkorde G, Cadd9, Em7 und Dsus4, lass deine Akkorde in Echtzeit per Mikrofon bewerten und stimme deine Gitarre.">
+  <meta name="color-scheme" content="dark">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Akkord-Trainer">
+  <title>Gitarren-Akkord-Trainer</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="icons/favicon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icons/icon-180.png">
+  <link rel="stylesheet" href="css/styles.css?v=1.1.1">
+  <script src="js/chords.js?v=1.1.1" defer></script>
+  <script src="js/detection.js?v=1.1.1" defer></script>
+  <script src="js/pitch.js?v=1.1.1" defer></script>
+  <script src="js/tuning.js?v=1.1.1" defer></script>
+  <script src="js/stats.js?v=1.1.1" defer></script>
+  <script src="js/fretboard.js?v=1.1.1" defer></script>
+  <script src="js/metronome.js?v=1.1.1" defer></script>
+  <script src="js/audio.js?v=1.1.1" defer></script>
+  <script src="js/app.js?v=1.1.1" defer></script>
+</head>
+<body>
+  <header class="app-header">
+    <div class="header-inner">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true">🎸</span>
+        <span class="brand-text">
+          <span class="brand-title">Akkord-Trainer</span>
+          <span class="brand-sub">E-Gitarre · Echtzeit-Feedback</span>
+        </span>
+      </div>
+      <button id="settingsBtn" class="icon-btn" type="button" aria-label="Einstellungen öffnen">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true">
+          <path d="M4 7h9M18 7h2M4 17h2M10.5 17H20"/>
+          <circle cx="15.5" cy="7" r="2.3"/>
+          <circle cx="8" cy="17" r="2.3"/>
+        </svg>
+      </button>
+    </div>
+  </header>
+
+  <main class="app-main">
+    <section id="startScreen" class="card start-card" aria-labelledby="startTitle">
+      <div class="mic-orb" aria-hidden="true">
+        <span class="mic-orb-ring"></span>
+        <span class="mic-orb-icon">🎤</span>
+      </div>
+      <h1 id="startTitle">Stimme deine Gitarre.<br>Dann spiel los.</h1>
+      <p class="start-copy">
+        Der Trainer hört dir zu, erkennt <strong>G</strong>, <strong>Cadd9</strong>, <strong>Em7</strong> und
+        <strong>Dsus4</strong> – und stimmt im Stimm-Modus jede Saite.
+      </p>
+      <button id="startBtn" class="btn btn-primary btn-lg" type="button">
+        <span aria-hidden="true">🎤</span> Mikrofon aktivieren
+      </button>
+      <p class="fineprint">
+        Dein Audio wird ausschließlich lokal im Browser analysiert – nichts wird hochgeladen oder gespeichert.
+      </p>
+      <p id="secureHint" class="fineprint fineprint-warn" hidden>
+        Mikrofonzugriff braucht HTTPS oder <code>localhost</code>. Öffne die App über
+        <code>http://localhost:8080</code> oder einen TLS-Reverse-Proxy.
+      </p>
+    </section>
+
+    <div id="mainApp" hidden>
+      <nav class="mode-switch" aria-label="Modus">
+        <button id="modeTrainerBtn" class="mode-btn active" type="button" aria-pressed="true">Trainer</button>
+        <button id="modeTunerBtn" class="mode-btn" type="button" aria-pressed="false">Stimmen</button>
+      </nav>
+
+      <div id="trainerView">
+        <section class="card chord-card" aria-labelledby="chordHeading">
+          <div class="card-head">
+            <div>
+              <p class="eyebrow">Dein Akkord</p>
+              <h2 id="chordHeading">G-Dur</h2>
+            </div>
+            <span id="chordNotes" class="pill">G · B · D</span>
+          </div>
+          <div id="fretboard" class="fretboard-wrap"></div>
+          <p id="chordTip" class="chord-tip"></p>
+        </section>
+
+        <section id="detectionCard" class="card detection-card" aria-labelledby="statusText">
+          <div class="card-head card-head-compact">
+            <div class="status-block">
+              <span id="statusDot" class="status-dot" aria-hidden="true"></span>
+              <div>
+                <p class="eyebrow">Erkennung</p>
+                <h2 id="statusText">Mikrofon aktiv – spiele einen Akkord</h2>
+              </div>
+            </div>
+            <span id="scoreText" class="pill pill-score">0 %</span>
+          </div>
+          <div id="meter" class="meter" role="progressbar" aria-label="Beste Akkord-Ähnlichkeit"
+               aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+            <div id="meterFill" class="meter-fill"></div>
+          </div>
+          <div class="detection-foot">
+            <span id="levelText">Pegel: still</span>
+            <span id="statsInline" class="stats-inline">Treffer 0 / 0</span>
+          </div>
+        </section>
+
+        <section class="card metro-card" aria-labelledby="metroHeading">
+          <div class="card-head card-head-compact">
+            <div>
+              <p class="eyebrow" id="metroHeading">Metronom · 4/4</p>
+              <p class="bpm-display"><span id="bpmValue">50</span><span class="bpm-unit">BPM</span></p>
+            </div>
+            <button id="metroToggle" class="metro-toggle" type="button" aria-label="Metronom starten" aria-pressed="false">
+              <span class="metro-icon" aria-hidden="true"></span>
+            </button>
+          </div>
+          <label class="sr-only" for="bpmSlider">Tempo in BPM</label>
+          <input id="bpmSlider" class="slider" type="range" min="40" max="180" step="1" value="50">
+          <div id="beatDots" class="beat-row" aria-hidden="true">
+            <span class="beat-dot beat-accent"></span>
+            <span class="beat-dot"></span>
+            <span class="beat-dot"></span>
+            <span class="beat-dot"></span>
+          </div>
+          <div class="slider-scale" aria-hidden="true"><span>40</span><span>BPM</span><span>180</span></div>
+        </section>
+
+        <section class="chord-select" aria-labelledby="selectHeading">
+          <h2 id="selectHeading" class="section-title">Akkord wählen</h2>
+          <div id="chordButtons" class="chord-grid"></div>
+        </section>
+
+        <p class="app-footnote">Tipp: Erst stimmen, dann greifen – und jeden Akkord einmal klingen lassen.</p>
+      </div>
+
+      <div id="tunerView" hidden>
+        <section id="tunerCard" class="card tuner-card" aria-labelledby="tunerHeading">
+          <div class="card-head">
+            <div>
+              <p class="eyebrow">Stimmen</p>
+              <h2 id="tunerHeading">Gitarre stimmen</h2>
+            </div>
+            <span id="tunerTarget" class="pill">E2 · 82,4 Hz</span>
+          </div>
+
+          <div class="tuner-readout">
+            <div id="tunerNote" class="tuner-note">–</div>
+            <div class="tuner-meta">
+              <span id="tunerCents">0 Cent</span>
+              <span id="tunerFreq">Kein Signal</span>
+            </div>
+          </div>
+
+          <div class="tuner-gauge" aria-hidden="true">
+            <div class="tuner-zone"></div>
+            <div class="tuner-center"></div>
+            <div id="tunerNeedle" class="tuner-needle"></div>
+          </div>
+          <div class="tuner-scale" aria-hidden="true"><span>−50</span><span>0</span><span>+50</span></div>
+
+          <div class="tuner-status">
+            <span id="tunerStatusDot" class="status-dot" aria-hidden="true"></span>
+            <span id="tunerStatus">Spiele die tiefe E-Saite …</span>
+          </div>
+
+          <div id="tunerStrings" class="tuner-strings" role="group" aria-label="Saite wählen"></div>
+
+          <button id="refToneBtn" class="btn btn-secondary btn-full" type="button">Referenzton abspielen</button>
+          <p id="tunerTip" class="chord-tip tuner-tip">
+            Tippe die Saite an und drehe am Wirbel, bis der Zeiger in der Mitte steht.
+            Der Referenzton hilft beim Nachstimmen per Gehör.
+          </p>
+        </section>
+      </div>
+    </div>
+  </main>
+
+  <div id="settingsModal" class="modal" hidden>
+    <div class="modal-backdrop" data-close-settings></div>
+    <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
+      <div class="sheet-handle" aria-hidden="true"></div>
+      <div class="sheet-head">
+        <h2 id="settingsTitle">Einstellungen</h2>
+        <button id="closeSettings" class="icon-btn" type="button" aria-label="Einstellungen schließen">✕</button>
+      </div>
+
+      <label class="field-label" for="deviceSelect">Audio-Eingang</label>
+      <select id="deviceSelect" class="select">
+        <option value="">Standardgerät</option>
+      </select>
+      <button id="refreshDevices" class="btn btn-secondary btn-full" type="button">Geräte neu laden</button>
+      <p class="fineprint">
+        Der Rocksmith USB Guitar Adapter erscheint automatisch, sobald er angeschlossen ist.
+        Wähle ihn hier aus – der Wechsel erfolgt ohne Neustart.
+      </p>
+
+      <div class="divider" aria-hidden="true"></div>
+
+      <div class="stats-box">
+        <div class="stats-box-head">
+          <span>Deine Statistik</span>
+          <strong id="statsText">Noch keine Versuche</strong>
+        </div>
+        <div id="statsBreakdown" class="stats-breakdown"></div>
+      </div>
+      <div class="stats-actions">
+        <button id="exportStats" class="btn btn-secondary btn-full" type="button">Statistik als CSV exportieren</button>
+        <button id="resetStats" class="btn btn-danger btn-full" type="button">Statistik zurücksetzen</button>
+      </div>
+      <p class="fineprint version">Version 1.1.1 · Läuft vollständig offline</p>
+    </div>
+  </div>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <p id="liveStatus" class="sr-only" aria-live="polite" aria-atomic="true"></p>
+  <p id="tunerLive" class="sr-only" aria-live="polite" aria-atomic="true"></p>
+</body>
+</html>

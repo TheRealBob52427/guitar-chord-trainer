@@ -1,0 +1,10 @@
+# Build-Kontext klein halten. Achtung: Hier ausgeschlossene Dateien
+# können im Dockerfile nicht per COPY verwendet werden.
+.git
+.gitignore
+node_modules
+tests
+tools
+README.md
+*.md
+.dockerignore

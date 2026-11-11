@@ -1,0 +1,30 @@
+# Betriebssystem
+.DS_Store
+Thumbs.db
+
+# Editoren
+.vscode/
+.idea/
+
+# Abhängigkeiten / Python
+node_modules/
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Logs
+*.log
+
+# Lokale Konfiguration / Secrets
+.env
+.env.*
+!.env.example
+
+# Test- und Build-Artefakte
+coverage/
+test-results/
+playwright-report/
+
+# Exportierte Statistikdateien
+akkord-statistik-*.csv
