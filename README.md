@@ -2,8 +2,9 @@
 
 Progressive Web App für E-Gitarren-Anfänger: zeigt Griffbrett-Diagramme für
 **G, Cadd9, Em7 und Dsus4**, bewertet die gespielten Akkorde in Echtzeit über
-Mikrofon oder USB-Gitarreninterface (z. B. Rocksmith USB Guitar Adapter) und
-enthält ein interaktives Stimmgerät für alle sechs Saiten.
+Mikrofon oder USB-Gitarreninterface (z. B. Rocksmith USB Guitar Adapter), enthält
+ein interaktives Stimmgerät und einen Pentatonik-Trainer mit automatischer
+Tonprüfung.
 
 Reines Vanilla-JS – kein Framework, kein Build-Schritt, keine externen Requests.
 Das Audio wird ausschließlich lokal im Browser analysiert. Trefferstatistiken
@@ -42,6 +43,9 @@ unter „Audio-Eingang“.
 - **Stimm-Modus** für E2, A2, D3, G3, B3 und E4: YIN-Pitch-Erkennung,
   Cent-Zeiger (±50 Cent), In-Tune-Anzeige innerhalb ±5 Cent, Saitenauswahl und
   Referenzton.
+- **Pentatonik-Trainer** für alle zwölf Grundtöne in Moll und Dur:
+  12-Bund-Griffbrett mit Grundton-Hervorhebung, wählbare Anschlagszahl,
+  Wiederholungen pro Ton und automatische Kontrolle der gespielten Töne.
 - **Statistik** pro Akkord (Treffer/Versuche) in `localStorage`, mit
   Gesamtquote, Reset und **CSV-Export** im Settings-Sheet.
 - **Metronom** 40–180 BPM (Standard **50 BPM**), 4/4, Beat-Dots mit Akzent auf
@@ -59,7 +63,11 @@ unter „Audio-Eingang“.
 3. Im Tab **Stimmen** die gewünschte Saite antippen, die Saite einzeln
    anschlagen und am Wirbel drehen, bis der Zeiger grün in der Mitte steht.
    „Referenzton …“ spielt die Sollfrequenz vor.
-4. Im Settings-Sheet (Regler-Symbol) Audio-Eingang wählen, die Statistik
+4. Im Tab **Pentatonik** Grundton und Tongeschlecht wählen, Anschläge und
+   Wiederholungen pro Ton einstellen und „Übung starten“ antippen. Die App
+   erwartet die Töne in der angezeigten Reihenfolge und quittiert jeden
+   richtigen Anschlag automatisch.
+5. Im Settings-Sheet (Regler-Symbol) Audio-Eingang wählen, die Statistik
    einsehen, als CSV exportieren oder zurücksetzen.
 
 ## Projektstruktur
@@ -74,6 +82,7 @@ unter „Audio-Eingang“.
 │   │   ├── detection.js    # Chromagramm, Cosine-Similarity, Hysterese
 │   │   ├── pitch.js        # YIN-Pitch-Erkennung für das Stimmgerät
 │   │   ├── tuning.js       # Saitenfrequenzen, Cent-Berechnung, Formatierung
+│   │   ├── pentatonic.js   # Skalen, Übungsfolgen und 12-Bund-Griffbrett
 │   │   ├── stats.js        # Statistik-Persistenz, Migration, CSV-Export
 │   │   ├── fretboard.js    # SVG-Griffbrett-Renderer
 │   │   ├── audio.js        # getUserMedia, AnalyserNode, Analyse-Loop
@@ -182,15 +191,38 @@ Die Statistik liegt unter `guitarTrainer.stats.v2` in `localStorage`:
 - „Statistik zurücksetzen“ entfernt v1 und v2; ein Neuladen kann alte Daten
   nicht wiederherstellen.
 
+## Pentatonik-Trainer
+
+- **Skalen**: Moll-Pentatonik `[0, 3, 5, 7, 10]` und Dur-Pentatonik
+  `[0, 2, 4, 7, 9]`, transponierbar auf alle zwölf Grundtöne. Das Griffbrett
+  zeigt alle Skalentöne über zwölf Bünde; Grundtöne sind rot markiert.
+- **Übungsfolge**: Die fünf Skalenstufen werden aufsteigend gespielt. Jeder Ton
+  wird `Wiederholungen pro Ton`-mal erwartet, bis die eingestellte
+  Gesamtzahl an Anschlägen erreicht ist. Bei 6 Anschlägen und 2× pro Ton ist
+  die Folge also `A A C C D D`.
+- **Automatische Prüfung**: Der Stimm-Modus läuft im Übungsbetrieb mit
+  20 Updates/s. Ein Treffer wird nur gewertet, wenn die erkannte Pitch-Class
+  zweimal hintereinander (ca. 100 ms) zum Zielton passt. Ein Ziel wird
+  unabhängig von der Oktave akzeptiert, sodass dieselbe Note auf verschiedenen
+  Saitenlagen gespielt werden kann.
+- **Anschlags-Tor**: Nach einem Treffer muss der Ton abklingen, neu
+  angeschlagen werden oder zu einem anderen Ton wechseln. Dadurch zählt ein
+  langer Ton nicht mehrfach. Der gerade gewertete Ton wird beim Nachklingen
+  nicht sofort als Fehler für den nächsten Zielton gezählt.
+- **Fehler**: Ein falscher Ton löst „Ton passt nicht“ aus und nennt den
+  erwarteten und den gehörten Ton; der Fortschritt bleibt stehen, bis der
+  richtige Ton gespielt wird. Die Übung endet mit Trefferquote und Fehlerzahl.
+
 ## Tests
 
-Die DSP-Kette, YIN-Erkennung, Statistik und das Metronom sind ohne Browser
-testbar. Die Tests synthetisieren Gitarrenakkorde und Saitentöne mit
-Obertönen, führen eine echte FFT aus und prüfen unter anderem:
+Die DSP-Kette, YIN-Erkennung, Pentatonik-Logik, Statistik und das Metronom sind
+ohne Browser testbar. Die Tests synthetisieren Gitarrenakkorde und Saitentöne
+mit Obertönen, führen eine echte FFT aus und prüfen unter anderem:
 
 - Erkennung aller vier Akkorde und der sechs offenen Saiten,
 - Cent-Genauigkeit, Oktavfehler-Stabilität und Stille,
 - Hysterese und Akkorddaten,
+- Pentatonik-Intervalle, Übungsfolgen, Griffbrettpositionen und SVG,
 - Statistik-Migration, Persistenz, CSV-Inhalt und Reset,
 - Metronom-Standard 50 BPM und BPM-Grenzen.
 
@@ -211,7 +243,7 @@ auch ohne TLS. Der Service Worker wird ebenfalls auf localhost registriert.
 
 - **Cache aktualisieren**: Nach Änderungen an Dateien in `app/` die
   `CACHE_VERSION` in `app/sw.js` erhöhen **und** die Versions-Query in
-  `app/index.html` sowie in der Precache-Liste anpassen (z. B. `?v=1.1.1`).
+  `app/index.html` sowie in der Precache-Liste anpassen (z. B. `?v=1.2.0`).
   So können installierte Clients nicht neues HTML mit altem JavaScript
   mischen.
 - **Icons neu generieren**: `python3 tools/generate_icons.py` (benötigt Pillow).
@@ -245,10 +277,14 @@ auch ohne TLS. Der Service Worker wird ebenfalls auf localhost registriert.
 - **USB-Adapter fehlt**: Adapter anschließen, Settings öffnen, „Geräte neu
   laden“. Bei Linux ggf. `arecord -l` prüfen.
 - **Tabs reagieren nicht / alte Version**: Im Settings-Sheet muss **Version
-  1.1.1** stehen. Nach einem Image-Update `docker compose build --no-cache &&
+  1.2.0** stehen. Nach einem Image-Update `docker compose build --no-cache &&
   docker compose up -d` ausführen, die PWA schließen und neu öffnen. HTML und
-  JavaScript sind mit `?v=1.1.1` versioniert, damit kein altes JS aus dem
+  JavaScript sind mit `?v=1.2.0` versioniert, damit kein altes JS aus dem
   Browser- oder Service-Worker-Cache geladen wird.
+- **Pentatonik-Übung zählt nicht weiter**: Töne einzeln und mit kurzer Pause
+  spielen; bei wiederholtem gleichem Ton kurz abdämpfen. Die App prüft die
+  Pitch-Class, nicht die Oktave. Bei zu leiser Gitarre Pegel erhöhen oder
+  Eingang prüfen.
 - **PWA installiert alte Version**: App schließen und neu öffnen; der Service
   Worker lädt im Hintergrund. Bei Entwicklung `CACHE_VERSION`, die
   Versions-Query in `index.html` und die Precache-Liste gemeinsam erhöhen und

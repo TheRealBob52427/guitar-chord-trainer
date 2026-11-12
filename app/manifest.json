@@ -1,7 +1,7 @@
 {
   "name": "Gitarren-Akkord-Trainer",
   "short_name": "Akkord-Trainer",
-  "description": "E-Gitarren-Akkorde G, Cadd9, Em7 und Dsus4 lernen, in Echtzeit per Mikrofon bewerten und die Gitarre stimmen.",
+  "description": "E-Gitarren-Akkorde lernen, Gitarre stimmen und Pentatoniken mit Echtzeit-Tonprüfung üben.",
   "lang": "de",
   "dir": "ltr",
   "start_url": "./",

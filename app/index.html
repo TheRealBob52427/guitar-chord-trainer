@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#0f0f1e">
-  <meta name="description" content="Lerne die E-Gitarren-Akkorde G, Cadd9, Em7 und Dsus4, lass deine Akkorde in Echtzeit per Mikrofon bewerten und stimme deine Gitarre.">
+  <meta name="description" content="E-Gitarren-Akkorde G, Cadd9, Em7 und Dsus4 lernen, Gitarre stimmen und Pentatoniken mit Echtzeit-Tonprüfung üben.">
   <meta name="color-scheme" content="dark">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -13,16 +13,17 @@
   <link rel="manifest" href="manifest.json">
   <link rel="icon" href="icons/favicon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="icons/icon-180.png">
-  <link rel="stylesheet" href="css/styles.css?v=1.1.1">
-  <script src="js/chords.js?v=1.1.1" defer></script>
-  <script src="js/detection.js?v=1.1.1" defer></script>
-  <script src="js/pitch.js?v=1.1.1" defer></script>
-  <script src="js/tuning.js?v=1.1.1" defer></script>
-  <script src="js/stats.js?v=1.1.1" defer></script>
-  <script src="js/fretboard.js?v=1.1.1" defer></script>
-  <script src="js/metronome.js?v=1.1.1" defer></script>
-  <script src="js/audio.js?v=1.1.1" defer></script>
-  <script src="js/app.js?v=1.1.1" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=1.2.0">
+  <script src="js/chords.js?v=1.2.0" defer></script>
+  <script src="js/detection.js?v=1.2.0" defer></script>
+  <script src="js/pitch.js?v=1.2.0" defer></script>
+  <script src="js/tuning.js?v=1.2.0" defer></script>
+  <script src="js/stats.js?v=1.2.0" defer></script>
+  <script src="js/pentatonic.js?v=1.2.0" defer></script>
+  <script src="js/fretboard.js?v=1.2.0" defer></script>
+  <script src="js/metronome.js?v=1.2.0" defer></script>
+  <script src="js/audio.js?v=1.2.0" defer></script>
+  <script src="js/app.js?v=1.2.0" defer></script>
 </head>
 <body>
   <header class="app-header">
@@ -53,7 +54,7 @@
       <h1 id="startTitle">Stimme deine Gitarre.<br>Dann spiel los.</h1>
       <p class="start-copy">
         Der Trainer hört dir zu, erkennt <strong>G</strong>, <strong>Cadd9</strong>, <strong>Em7</strong> und
-        <strong>Dsus4</strong> – und stimmt im Stimm-Modus jede Saite.
+        <strong>Dsus4</strong> – stimmt jede Saite und prüft deine Pentatonik-Übungen.
       </p>
       <button id="startBtn" class="btn btn-primary btn-lg" type="button">
         <span aria-hidden="true">🎤</span> Mikrofon aktivieren
@@ -71,6 +72,7 @@
       <nav class="mode-switch" aria-label="Modus">
         <button id="modeTrainerBtn" class="mode-btn active" type="button" aria-pressed="true">Trainer</button>
         <button id="modeTunerBtn" class="mode-btn" type="button" aria-pressed="false">Stimmen</button>
+        <button id="modePentatonicBtn" class="mode-btn" type="button" aria-pressed="false">Pentatonik</button>
       </nav>
 
       <div id="trainerView">
@@ -175,6 +177,86 @@
           </p>
         </section>
       </div>
+
+      <div id="pentatonicView" hidden>
+        <section class="card scale-card" aria-labelledby="scaleHeading">
+          <div class="card-head">
+            <div>
+              <p class="eyebrow">Pentatonik</p>
+              <h2 id="scaleHeading">A-Moll-Pentatonik</h2>
+            </div>
+            <span id="scaleNotes" class="pill">A · C · D · E · G</span>
+          </div>
+
+          <div class="scale-controls">
+            <label class="scale-field" for="scaleRoot">
+              Grundton
+              <select id="scaleRoot" class="select"></select>
+            </label>
+            <div class="scale-type" role="group" aria-label="Tongeschlecht">
+              <button id="scaleMinorBtn" class="scale-type-btn active" type="button" aria-pressed="true">Moll</button>
+              <button id="scaleMajorBtn" class="scale-type-btn" type="button" aria-pressed="false">Dur</button>
+            </div>
+          </div>
+
+          <div id="scaleFretboard" class="scale-fretboard-wrap"></div>
+          <div class="scale-legend">
+            <span><i class="legend-dot is-root"></i>Grundton</span>
+            <span><i class="legend-dot"></i>Skalenton</span>
+          </div>
+        </section>
+
+        <section id="practiceCard" class="card practice-card" aria-labelledby="practiceStatus">
+          <div class="card-head card-head-compact">
+            <div class="status-block">
+              <span id="practiceDot" class="status-dot" aria-hidden="true"></span>
+              <div>
+                <p class="eyebrow">Übung</p>
+                <h2 id="practiceStatus">Bereit zum Üben</h2>
+              </div>
+            </div>
+            <span id="practiceProgressLabel" class="pill pill-score">0 / 15</span>
+          </div>
+
+          <div class="practice-readout">
+            <span id="practiceTargetLabel" class="practice-target-label">Zielton</span>
+            <span id="practiceTarget" class="practice-target">A</span>
+            <div class="practice-meta">
+              <span id="practiceDetected">Erkannt: –</span>
+              <span id="practiceInfo">15 Anschläge · 2× pro Ton</span>
+            </div>
+          </div>
+
+          <div id="practiceMeter" class="meter practice-meter" role="progressbar"
+               aria-label="Übungsfortschritt" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+            <div id="practiceProgressFill" class="meter-fill"></div>
+          </div>
+
+          <p class="practice-sequence-title">Abfolge</p>
+          <div id="practiceSequence" class="practice-sequence" aria-label="Übungsfolge"></div>
+
+          <p class="practice-settings-title">Übungseinstellungen</p>
+          <div class="practice-controls">
+            <label class="practice-control" for="scaleAttacks">
+              <span>Anschläge</span>
+              <output id="attacksValue" for="scaleAttacks">15</output>
+            </label>
+            <input id="scaleAttacks" class="slider" type="range" min="5" max="40" step="1" value="15">
+
+            <label class="practice-control" for="scaleRepeats">
+              <span>Pro Ton</span>
+              <output id="repeatsValue" for="scaleRepeats">2×</output>
+            </label>
+            <input id="scaleRepeats" class="slider" type="range" min="1" max="4" step="1" value="2">
+          </div>
+
+          <button id="practiceStart" class="btn btn-primary btn-full" type="button">Übung starten</button>
+          <button id="practiceStop" class="btn btn-secondary btn-full" type="button" hidden>Übung stoppen</button>
+          <p id="practiceHint" class="chord-tip practice-hint">
+            Wähle Pentatonik und Anschläge, dann starte die Übung. Spiele jeden Ton einzeln und sauber.
+          </p>
+        </section>
+      </div>
     </div>
   </main>
 
@@ -210,12 +292,13 @@
         <button id="exportStats" class="btn btn-secondary btn-full" type="button">Statistik als CSV exportieren</button>
         <button id="resetStats" class="btn btn-danger btn-full" type="button">Statistik zurücksetzen</button>
       </div>
-      <p class="fineprint version">Version 1.1.1 · Läuft vollständig offline</p>
+      <p class="fineprint version">Version 1.2.0 · Läuft vollständig offline</p>
     </div>
   </div>
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
   <p id="liveStatus" class="sr-only" aria-live="polite" aria-atomic="true"></p>
   <p id="tunerLive" class="sr-only" aria-live="polite" aria-atomic="true"></p>
+  <p id="practiceLive" class="sr-only" aria-live="polite" aria-atomic="true"></p>
 </body>
 </html>

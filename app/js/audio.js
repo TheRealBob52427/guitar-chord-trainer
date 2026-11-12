@@ -13,7 +13,7 @@
       this.onAttempt = options.onAttempt || function () {};
       this.onError = options.onError || function () {};
       this.onTrackEnded = options.onTrackEnded || function () {};
-      this.onTunerUpdate = options.onTunerUpdate || function () {};
+      this.onPitchUpdate = options.onPitchUpdate || function () {};
 
       this.ctx = null;
       this.stream = null;
@@ -26,7 +26,7 @@
       this.running = false;
       this.deviceId = '';
       this.mode = 'chords';
-      this._tunerTick = 0;
+      this._pitchTick = 0;
       this._referenceOsc = null;
       this._referenceGain = null;
 
@@ -156,7 +156,7 @@
         this.timer = null;
       }
       this.running = false;
-      this._tunerTick = 0;
+      this._pitchTick = 0;
 
       if (this.source) {
         try { this.source.disconnect(); } catch (e) { /* bereits getrennt */ }
@@ -192,8 +192,8 @@
     }
 
     setMode(mode) {
-      this.mode = mode === 'tuner' ? 'tuner' : 'chords';
-      this._tunerTick = 0;
+      this.mode = (mode === 'tuner' || mode === 'scale') ? mode : 'chords';
+      this._pitchTick = 0;
       if (this.mode === 'chords') this.matcher.reset();
     }
 
@@ -264,15 +264,21 @@
       const levelDb = 20 * Math.log10(Math.max(rms, 1e-8));
       const silent = levelDb < SILENCE_DB;
 
-      if (this.mode === 'tuner') {
-        // YIN ist rechenintensiver als das Chromagramm; 10 Updates/s reichen
-        // für einen ruhigen Zeiger.
-        this._tunerTick = (this._tunerTick + 1) % 2;
-        if (this._tunerTick !== 0) return;
+      if (this.mode === 'tuner' || this.mode === 'scale') {
+        // Stimmgerät: 10 Updates/s reichen für einen ruhigen Zeiger.
+        // Übungsmodus: 20 Updates/s, damit Anschläge sicher erkannt werden.
+        const every = this.mode === 'scale' ? 1 : 2;
+        this._pitchTick = (this._pitchTick + 1) % every;
+        if (this._pitchTick !== 0) return;
         const pitch = silent
           ? null
           : global.ChordTrainer.detectPitch(this.timeData, this.ctx.sampleRate);
-        this.onTunerUpdate({ levelDb: Math.max(-100, levelDb), silent, pitch });
+        this.onPitchUpdate({
+          levelDb: Math.max(-100, levelDb),
+          silent,
+          pitch,
+          mode: this.mode
+        });
         return;
       }
 

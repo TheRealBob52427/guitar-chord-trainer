@@ -4,20 +4,21 @@
  */
 'use strict';
 
-const CACHE_VERSION = 'guitar-trainer-v1.1.1';
+const CACHE_VERSION = 'guitar-trainer-v1.2.0';
 const PRECACHE = [
   './',
   './index.html',
-  './css/styles.css?v=1.1.1',
-  './js/chords.js?v=1.1.1',
-  './js/detection.js?v=1.1.1',
-  './js/pitch.js?v=1.1.1',
-  './js/tuning.js?v=1.1.1',
-  './js/stats.js?v=1.1.1',
-  './js/fretboard.js?v=1.1.1',
-  './js/metronome.js?v=1.1.1',
-  './js/audio.js?v=1.1.1',
-  './js/app.js?v=1.1.1',
+  './css/styles.css?v=1.2.0',
+  './js/chords.js?v=1.2.0',
+  './js/detection.js?v=1.2.0',
+  './js/pitch.js?v=1.2.0',
+  './js/tuning.js?v=1.2.0',
+  './js/stats.js?v=1.2.0',
+  './js/pentatonic.js?v=1.2.0',
+  './js/fretboard.js?v=1.2.0',
+  './js/metronome.js?v=1.2.0',
+  './js/audio.js?v=1.2.0',
+  './js/app.js?v=1.2.0',
   './manifest.json',
   './icons/favicon.svg',
   './icons/icon-192.png',

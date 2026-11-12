@@ -18,7 +18,12 @@
     centsFromFrequency,
     isInTune,
     formatCents,
-    formatHz
+    formatHz,
+    NOTE_NAMES,
+    scalePitchClasses,
+    scaleLabel,
+    buildSequence: buildPentatonicSequence,
+    renderPentatonicFretboard
   } = window.ChordTrainer;
   const MATCH_SCORE = DEFAULTS.matchThreshold;
   const MIN_BPM = 40;
@@ -31,8 +36,10 @@
     mainApp: document.getElementById('mainApp'),
     modeTrainerBtn: document.getElementById('modeTrainerBtn'),
     modeTunerBtn: document.getElementById('modeTunerBtn'),
+    modePentatonicBtn: document.getElementById('modePentatonicBtn'),
     trainerView: document.getElementById('trainerView'),
     tunerView: document.getElementById('tunerView'),
+    pentatonicView: document.getElementById('pentatonicView'),
     tunerCard: document.getElementById('tunerCard'),
     tunerNote: document.getElementById('tunerNote'),
     tunerCents: document.getElementById('tunerCents'),
@@ -44,6 +51,31 @@
     tunerStrings: document.getElementById('tunerStrings'),
     refToneBtn: document.getElementById('refToneBtn'),
     tunerLive: document.getElementById('tunerLive'),
+    scaleHeading: document.getElementById('scaleHeading'),
+    scaleNotes: document.getElementById('scaleNotes'),
+    scaleRoot: document.getElementById('scaleRoot'),
+    scaleMinorBtn: document.getElementById('scaleMinorBtn'),
+    scaleMajorBtn: document.getElementById('scaleMajorBtn'),
+    scaleFretboard: document.getElementById('scaleFretboard'),
+    practiceCard: document.getElementById('practiceCard'),
+    practiceDot: document.getElementById('practiceDot'),
+    practiceStatus: document.getElementById('practiceStatus'),
+    practiceProgressLabel: document.getElementById('practiceProgressLabel'),
+    practiceTarget: document.getElementById('practiceTarget'),
+    practiceTargetLabel: document.getElementById('practiceTargetLabel'),
+    practiceDetected: document.getElementById('practiceDetected'),
+    practiceInfo: document.getElementById('practiceInfo'),
+    practiceMeter: document.getElementById('practiceMeter'),
+    practiceProgressFill: document.getElementById('practiceProgressFill'),
+    practiceSequence: document.getElementById('practiceSequence'),
+    scaleAttacks: document.getElementById('scaleAttacks'),
+    attacksValue: document.getElementById('attacksValue'),
+    scaleRepeats: document.getElementById('scaleRepeats'),
+    repeatsValue: document.getElementById('repeatsValue'),
+    practiceStart: document.getElementById('practiceStart'),
+    practiceStop: document.getElementById('practiceStop'),
+    practiceHint: document.getElementById('practiceHint'),
+    practiceLive: document.getElementById('practiceLive'),
     chordHeading: document.getElementById('chordHeading'),
     chordNotes: document.getElementById('chordNotes'),
     chordTip: document.getElementById('chordTip'),
@@ -80,6 +112,25 @@
     tuningStringIndex: 0,
     tunerSmoothCents: null,
     tunerWasInTune: false,
+    scale: {
+      rootPc: 9,
+      type: 'minor',
+      attacks: 15,
+      repeats: 2,
+      sequence: [],
+      active: false,
+      index: 0,
+      hits: 0,
+      misses: 0,
+      needRelease: false,
+      candidateFrames: 0,
+      missLatched: false,
+      lastLevelDb: null,
+      lastHitAt: 0,
+      lastHitPc: null,
+      graceUntil: 0,
+      feedbackUntil: 0
+    },
     running: false,
     selectedDeviceId: '',
     stats: Stats.loadStats(window.localStorage, CHORD_ORDER),
@@ -92,7 +143,7 @@
     onUpdate: handleUpdate,
     onAttempt: handleAttempt,
     onTrackEnded: handleTrackEnded,
-    onTunerUpdate: handleTunerUpdate,
+    onPitchUpdate: handlePitchUpdate,
     onError: () => {}
   });
 
@@ -293,27 +344,38 @@
   /* ---------- Modus & Stimmgerät ---------- */
 
   function applyMode(mode) {
-    const next = mode === 'tuner' ? 'tuner' : 'trainer';
+    const next = (mode === 'tuner' || mode === 'pentatonic') ? mode : 'trainer';
     const tunerActive = next === 'tuner';
+    const pentatonicActive = next === 'pentatonic';
     state.mode = next;
     engine.stopReferenceTone();
 
-    els.modeTrainerBtn.classList.toggle('active', !tunerActive);
+    els.modeTrainerBtn.classList.toggle('active', next === 'trainer');
     els.modeTunerBtn.classList.toggle('active', tunerActive);
-    els.modeTrainerBtn.setAttribute('aria-pressed', String(!tunerActive));
+    els.modePentatonicBtn.classList.toggle('active', pentatonicActive);
+    els.modeTrainerBtn.setAttribute('aria-pressed', String(next === 'trainer'));
     els.modeTunerBtn.setAttribute('aria-pressed', String(tunerActive));
+    els.modePentatonicBtn.setAttribute('aria-pressed', String(pentatonicActive));
 
-    els.trainerView.hidden = tunerActive;
+    els.trainerView.hidden = next !== 'trainer';
     els.tunerView.hidden = !tunerActive;
+    els.pentatonicView.hidden = !pentatonicActive;
 
     if (tunerActive) {
+      stopPractice();
       metronome.stop();
       engine.setMode('tuner');
       state.tunerSmoothCents = null;
       state.tunerWasInTune = false;
       updateTunerTarget();
       resetTunerDisplay();
+    } else if (pentatonicActive) {
+      stopPractice();
+      metronome.stop();
+      engine.setMode('scale');
+      updateScaleDisplay();
     } else {
+      stopPractice();
       engine.setMode('chords');
       selectChord(state.chordId);
     }
@@ -448,6 +510,362 @@
     }
   }
 
+  /* ---------- Pentatonik ---------- */
+
+  function buildScaleRootOptions() {
+    NOTE_NAMES.forEach((name, pitchClass) => {
+      els.scaleRoot.add(new Option(name, String(pitchClass)));
+    });
+    els.scaleRoot.value = String(state.scale.rootPc);
+  }
+
+  function updateScaleTypeButtons() {
+    const minor = state.scale.type === 'minor';
+    els.scaleMinorBtn.classList.toggle('active', minor);
+    els.scaleMajorBtn.classList.toggle('active', !minor);
+    els.scaleMinorBtn.setAttribute('aria-pressed', String(minor));
+    els.scaleMajorBtn.setAttribute('aria-pressed', String(!minor));
+  }
+
+  function applyScaleType(type) {
+    if (state.scale.type === type) return;
+    state.scale.type = type;
+    stopPractice();
+    updateScaleDisplay();
+    refreshPracticeSequence();
+  }
+
+  function updateScaleDisplay() {
+    const { rootPc, type } = state.scale;
+    const pcs = scalePitchClasses(rootPc, type);
+    els.scaleHeading.textContent = scaleLabel(rootPc, type);
+    els.scaleNotes.textContent = pcs.map((pc) => NOTE_NAMES[pc]).join(' · ');
+    els.scaleFretboard.innerHTML = renderPentatonicFretboard(rootPc, type);
+    els.scaleRoot.value = String(rootPc);
+    updateScaleTypeButtons();
+    updateScaleHighlight();
+  }
+
+  function refreshPracticeSequence() {
+    const scale = state.scale;
+    scale.sequence = buildPentatonicSequence(scale.rootPc, scale.type, scale.attacks, scale.repeats);
+    els.practiceInfo.textContent = `${scale.attacks} Anschläge · ${scale.repeats}× pro Ton`;
+    renderPracticeSequence();
+
+    if (!scale.active) {
+      const first = scale.sequence[0];
+      els.practiceTarget.textContent = first ? first.name : '–';
+      els.practiceTarget.classList.remove('is-good');
+      els.practiceDetected.textContent = 'Erkannt: –';
+      updatePracticeProgress();
+      updateScaleHighlight();
+    }
+  }
+
+  function renderPracticeSequence() {
+    els.practiceSequence.textContent = '';
+    const sequence = state.scale.sequence;
+    const total = sequence.length;
+    const visibleCount = 6;
+    let start = state.scale.index;
+    if (start >= total) start = Math.max(0, total - visibleCount);
+    if (!state.scale.active) start = 0;
+
+    sequence.slice(start, start + visibleCount).forEach((note, offset) => {
+      const index = start + offset;
+      const chip = document.createElement('span');
+      chip.className = 'seq-chip';
+      chip.dataset.index = String(index);
+      chip.textContent = note.name;
+      chip.setAttribute('aria-label', `${index + 1}. ${note.name}`);
+      els.practiceSequence.append(chip);
+    });
+    if (start + visibleCount < total) {
+      const more = document.createElement('span');
+      more.className = 'seq-chip seq-more';
+      more.textContent = '…';
+      more.setAttribute('aria-hidden', 'true');
+      els.practiceSequence.append(more);
+    }
+    updatePracticeSequenceState();
+  }
+
+  function updatePracticeSequenceState() {
+    const chips = els.practiceSequence.children;
+    for (let i = 0; i < chips.length; i += 1) {
+      const index = Number(chips[i].dataset.index);
+      chips[i].classList.toggle('is-done', index < state.scale.index);
+      chips[i].classList.toggle('is-current', state.scale.active && index === state.scale.index);
+    }
+  }
+
+  function updatePracticeProgress() {
+    const total = state.scale.sequence.length;
+    const done = Math.min(state.scale.index, total);
+    const percent = total > 0 ? Math.round((done / total) * 100) : 0;
+
+    els.practiceProgressLabel.textContent = `${done} / ${total}`;
+    els.practiceProgressFill.style.width = `${percent}%`;
+    els.practiceMeter.setAttribute('aria-valuenow', String(percent));
+  }
+
+  function setPracticeStatus(text, kind) {
+    if (els.practiceStatus.textContent !== text) els.practiceStatus.textContent = text;
+    els.practiceDot.className = 'status-dot' + (kind ? ` is-${kind}` : '');
+  }
+
+  function updateScaleSliderFill(input, value, min, max) {
+    const percent = ((value - min) / (max - min)) * 100;
+    input.style.setProperty('--fill', `${Math.max(0, Math.min(100, percent)).toFixed(1)}%`);
+  }
+
+  function syncPracticeControls() {
+    els.attacksValue.textContent = String(state.scale.attacks);
+    els.repeatsValue.textContent = `${state.scale.repeats}×`;
+    updateScaleSliderFill(els.scaleAttacks, state.scale.attacks, 5, 40);
+    updateScaleSliderFill(els.scaleRepeats, state.scale.repeats, 1, 4);
+  }
+
+  function pulsePracticeCard() {
+    els.practiceCard.classList.remove('pulse');
+    void els.practiceCard.offsetWidth;
+    els.practiceCard.classList.add('pulse');
+    window.setTimeout(() => els.practiceCard.classList.remove('pulse'), 760);
+  }
+
+  function setScaleControlsDisabled(disabled) {
+    [els.scaleRoot, els.scaleMinorBtn, els.scaleMajorBtn, els.scaleAttacks, els.scaleRepeats]
+      .forEach((element) => { element.disabled = disabled; });
+  }
+
+  function updateScaleHighlight() {
+    const active = state.scale.active;
+    const target = active ? state.scale.sequence[state.scale.index] : null;
+    els.scaleFretboard.querySelectorAll('[data-pc]').forEach((element) => {
+      const isTarget = Boolean(target && Number(element.dataset.pc) === target.pc);
+      element.classList.toggle('is-target', isTarget);
+    });
+  }
+
+  function stopPractice() {
+    const scale = state.scale;
+    scale.active = false;
+    scale.index = 0;
+    scale.hits = 0;
+    scale.misses = 0;
+    scale.needRelease = false;
+    scale.candidateFrames = 0;
+    scale.missLatched = false;
+    scale.lastLevelDb = null;
+    scale.lastHitAt = 0;
+    scale.lastHitPc = null;
+    scale.graceUntil = 0;
+    scale.feedbackUntil = 0;
+
+    setScaleControlsDisabled(false);
+    els.practiceStart.hidden = false;
+    els.practiceStart.textContent = 'Übung starten';
+    els.practiceStop.hidden = true;
+    els.practiceCard.classList.remove('is-good');
+    els.practiceCard.classList.remove('is-warn');
+    els.practiceTarget.classList.remove('is-good');
+    els.practiceTargetLabel.textContent = 'Zielton';
+    setPracticeStatus('Bereit zum Üben', '');
+    els.practiceDetected.textContent = 'Erkannt: –';
+    els.practiceHint.textContent = 'Wähle Pentatonik und Anschläge, dann starte die Übung. Spiele jeden Ton einzeln und sauber.';
+
+    const first = scale.sequence[0];
+    els.practiceTarget.textContent = first ? first.name : '–';
+    updatePracticeProgress();
+    renderPracticeSequence();
+    updateScaleHighlight();
+  }
+
+  function startPractice() {
+    if (!state.running) {
+      toast('Bitte zuerst das Mikrofon aktivieren.');
+      return;
+    }
+    if (!state.scale.sequence.length) refreshPracticeSequence();
+
+    const scale = state.scale;
+    scale.active = true;
+    scale.index = 0;
+    scale.hits = 0;
+    scale.misses = 0;
+    scale.needRelease = false;
+    scale.candidateFrames = 0;
+    scale.missLatched = false;
+    scale.lastLevelDb = null;
+    scale.lastHitAt = 0;
+    scale.lastHitPc = null;
+    scale.graceUntil = 0;
+    scale.feedbackUntil = 0;
+
+    setScaleControlsDisabled(true);
+    els.practiceStart.hidden = true;
+    els.practiceStop.hidden = false;
+    els.practiceCard.classList.remove('is-good');
+    els.practiceCard.classList.remove('is-warn');
+    els.practiceTarget.classList.remove('is-good');
+    els.practiceTargetLabel.textContent = 'Zielton';
+    els.practiceHint.textContent = 'Jeden Ton einzeln anschlagen. Bei Wiederholungen kurz abdämpfen, damit der nächste Anschlag erkannt wird.';
+    els.practiceDetected.textContent = 'Erkannt: –';
+
+    const target = scale.sequence[0];
+    els.practiceTarget.textContent = target.name;
+    setPracticeStatus(`Spiele ${target.name} …`, 'listening');
+    updatePracticeProgress();
+    renderPracticeSequence();
+    updateScaleHighlight();
+
+    engine.setMode('scale');
+    metronome.stop();
+
+    if (els.practiceLive) {
+      els.practiceLive.textContent = `Übung gestartet. Erster Ton: ${target.name}.`;
+    }
+  }
+
+  function finishPractice() {
+    const scale = state.scale;
+    scale.active = false;
+    scale.candidateFrames = 0;
+    scale.needRelease = false;
+
+    setScaleControlsDisabled(false);
+    els.practiceStart.hidden = false;
+    els.practiceStart.textContent = 'Nochmal starten';
+    els.practiceStop.hidden = true;
+    els.practiceTarget.textContent = '✓';
+    els.practiceTarget.classList.add('is-good');
+    els.practiceTargetLabel.textContent = 'Ergebnis';
+    els.practiceDetected.textContent = 'Erkannt: ✓';
+    setPracticeStatus('Übung geschafft ✓', 'good');
+    els.practiceHint.textContent = `${scale.hits} von ${scale.sequence.length} Anschlägen richtig` +
+      (scale.misses > 0 ? ` · ${scale.misses} Fehler` : '') + '.';
+    els.practiceCard.classList.add('is-good');
+    pulsePracticeCard();
+    updatePracticeProgress();
+    renderPracticeSequence();
+    updateScaleHighlight();
+
+    if (navigator.vibrate) navigator.vibrate([40, 50, 80]);
+    if (els.practiceLive) {
+      els.practiceLive.textContent = `Übung geschafft. ${scale.hits} von ${scale.sequence.length} Anschlägen richtig.`;
+    }
+  }
+
+  function acceptPracticeHit(target, now) {
+    const scale = state.scale;
+    scale.hits += 1;
+    scale.index += 1;
+    scale.candidateFrames = 0;
+    scale.needRelease = true;
+    scale.lastHitAt = now;
+    scale.lastHitPc = target.pc;
+    scale.graceUntil = now + 250;
+    scale.missLatched = false;
+    scale.feedbackUntil = now + 700;
+    els.practiceCard.classList.remove('is-warn');
+    els.practiceHint.textContent = `${target.name} richtig ✓`;
+    pulsePracticeCard();
+    if (navigator.vibrate) navigator.vibrate(20);
+
+    if (scale.index >= scale.sequence.length) {
+      finishPractice();
+      return;
+    }
+
+    const next = scale.sequence[scale.index];
+    updatePracticeProgress();
+    renderPracticeSequence();
+    updateScaleHighlight();
+    els.practiceTarget.textContent = next.name;
+    els.practiceTarget.classList.remove('is-good');
+    setPracticeStatus(`Spiele ${next.name} …`, 'listening');
+    if (els.practiceLive) {
+      els.practiceLive.textContent = `${target.name} richtig. Weiter mit ${next.name}.`;
+    }
+  }
+
+  function handlePitchUpdate(update) {
+    if (state.mode === 'tuner') {
+      handleTunerUpdate(update);
+    } else if (state.mode === 'pentatonic') {
+      handleScalePitch(update);
+    }
+  }
+
+  function handleScalePitch(update) {
+    const scale = state.scale;
+    if (!scale.active) return;
+    const target = scale.sequence[scale.index];
+    if (!target) return;
+
+    const now = performance.now();
+    const previousLevel = scale.lastLevelDb;
+    scale.lastLevelDb = update.levelDb;
+    const levelRise = previousLevel !== null && update.levelDb > -48 && update.levelDb - previousLevel > 5;
+    const levelDrop = previousLevel !== null && previousLevel - update.levelDb > 8;
+    const released = update.silent || update.levelDb < -55 ||
+      (!update.pitch && (update.levelDb < -45 || levelDrop));
+    const note = update.pitch ? frequencyToNote(update.pitch.frequency) : null;
+    const pitchClass = note ? ((note.midi % 12) + 12) % 12 : null;
+
+    if (scale.needRelease) {
+      if (released || levelRise) {
+        scale.needRelease = false;
+        scale.lastHitPc = null;
+      } else if (note && pitchClass !== scale.lastHitPc) {
+        scale.needRelease = false;
+        scale.lastHitPc = null;
+      }
+    }
+
+    if (!note) {
+      scale.candidateFrames = 0;
+      if (released) {
+        scale.missLatched = false;
+        els.practiceCard.classList.remove('is-warn');
+      }
+      els.practiceDetected.textContent = released ? 'Erkannt: –' : 'Erkannt: ?';
+      if (now > scale.feedbackUntil) {
+        setPracticeStatus(`Spiele ${target.name} …`, 'listening');
+      }
+      return;
+    }
+
+    // Der gerade gewertete Ton klingt oft noch nach. Er darf nicht sofort als
+    // Fehler für den nächsten Zielton zählen.
+    if (scale.lastHitPc !== null && pitchClass === scale.lastHitPc) {
+      scale.candidateFrames = 0;
+      return;
+    }
+
+    els.practiceDetected.textContent = `Erkannt: ${note.name}`;
+
+    if (pitchClass === target.pc) {
+      scale.missLatched = false;
+      els.practiceCard.classList.remove('is-warn');
+      if (!scale.needRelease) {
+        scale.candidateFrames += 1;
+        if (scale.candidateFrames >= 2) acceptPracticeHit(target, now);
+      }
+      return;
+    }
+
+    scale.candidateFrames = 0;
+    if (!scale.missLatched && update.levelDb > -50 && now > scale.graceUntil) {
+      scale.missLatched = true;
+      scale.misses += 1;
+      els.practiceCard.classList.add('is-warn');
+      setPracticeStatus('Ton passt nicht', 'warn');
+      els.practiceHint.textContent = `Erwartet ${target.name} – gehört ${note.name}. Nochmal versuchen.`;
+      scale.feedbackUntil = now + 900;
+    }
+  }
+
   /* ---------- Mikrofon ---------- */
 
   async function startMic() {
@@ -470,7 +888,6 @@
       if (state.mode === 'trainer') {
         setStatus(`Mikrofon aktiv – spiele ${CHORDS[state.chordId].symbol}`, 'listening');
       }
-      toast(info.label ? `Eingang: ${info.label}` : 'Mikrofon aktiv');
       refreshDevices();
     } catch (error) {
       state.running = false;
@@ -499,6 +916,7 @@
 
   function handleTrackEnded() {
     state.running = false;
+    stopPractice();
     metronome.stop();
     els.mainApp.hidden = true;
     els.startScreen.hidden = false;
@@ -688,7 +1106,36 @@
 
     els.modeTrainerBtn.addEventListener('click', () => applyMode('trainer'));
     els.modeTunerBtn.addEventListener('click', () => applyMode('tuner'));
+    els.modePentatonicBtn.addEventListener('click', () => applyMode('pentatonic'));
     els.refToneBtn.addEventListener('click', playReferenceTone);
+
+    els.scaleRoot.addEventListener('change', (event) => {
+      state.scale.rootPc = Number(event.target.value);
+      stopPractice();
+      updateScaleDisplay();
+      refreshPracticeSequence();
+    });
+    els.scaleMinorBtn.addEventListener('click', () => applyScaleType('minor'));
+    els.scaleMajorBtn.addEventListener('click', () => applyScaleType('major'));
+
+    els.scaleAttacks.addEventListener('input', (event) => {
+      state.scale.attacks = Number(event.target.value);
+      syncPracticeControls();
+      stopPractice();
+      refreshPracticeSequence();
+    });
+    els.scaleRepeats.addEventListener('input', (event) => {
+      state.scale.repeats = Number(event.target.value);
+      syncPracticeControls();
+      stopPractice();
+      refreshPracticeSequence();
+    });
+
+    els.practiceStart.addEventListener('click', startPractice);
+    els.practiceStop.addEventListener('click', () => {
+      stopPractice();
+      toast('Übung gestoppt');
+    });
 
     els.exportStats.addEventListener('click', exportStatsCsv);
 
@@ -717,6 +1164,7 @@
       // Aus dem bfcache zurück: der alte Stream ist beendet, also sauber
       // wieder am Start-Screen aufsetzen.
       state.running = false;
+      stopPractice();
       els.mainApp.hidden = true;
       els.startScreen.hidden = false;
       resetMeter();
@@ -737,6 +1185,11 @@
 
     buildChordButtons();
     buildTunerStrings();
+    buildScaleRootOptions();
+    updateScaleDisplay();
+    refreshPracticeSequence();
+    syncPracticeControls();
+    stopPractice();
     renderStats();
     updateTunerTarget();
     setBpm(metronome.bpm);
