@@ -1,10 +1,10 @@
 # Gitarren-Akkord-Trainer
 
 Progressive Web App für E-Gitarren-Anfänger: zeigt Griffbrett-Diagramme für
-**G, Cadd9, Em7 und Dsus4**, bewertet die gespielten Akkorde in Echtzeit über
+**G, Cadd9, Em7, Dsus4 und A7sus4**, bewertet die gespielten Akkorde in Echtzeit über
 Mikrofon oder USB-Gitarreninterface (z. B. Rocksmith USB Guitar Adapter), enthält
-ein interaktives Stimmgerät und einen Pentatonik-Trainer mit automatischer
-Tonprüfung.
+ein interaktives Stimmgerät, einen Pentatonik-Trainer und einen Song-Modus mit
+automatischer Akkordprüfung.
 
 Reines Vanilla-JS – kein Framework, kein Build-Schritt, keine externen Requests.
 Das Audio wird ausschließlich lokal im Browser analysiert. Trefferstatistiken
@@ -33,6 +33,23 @@ Nach dem Start fragt der Browser nach der Mikrofonfreigabe. Bei USB-Interfaces
 den Adapter als Eingang wählen – er erscheint im Settings-Sheet automatisch
 unter „Audio-Eingang“.
 
+## Docker & Persistenz
+
+Der nginx-Container ist zustandslos: **kein Docker-Volume nötig**. Statistik
+und Einstellungen liegen im `localStorage` des Browsers, nicht im Container.
+Rebuilds und `docker compose down/up` ändern daran nichts, solange dieselbe
+Origin verwendet wird.
+
+Ein Volume ist nur für die Entwicklung sinnvoll, z. B.:
+
+```yaml
+volumes:
+  - ./app:/usr/share/nginx/html:ro
+```
+
+Damit werden Änderungen an `app/` ohne Rebuild sichtbar. Für den produktiven
+Betrieb bleibt das Image unverändert.
+
 ## Funktionen
 
 - **Griffbrett-Diagramme** als SVG: 5 Bünde, 6 Saiten (E–A–D–G–B–E),
@@ -46,8 +63,15 @@ unter „Audio-Eingang“.
 - **Pentatonik-Trainer** für alle zwölf Grundtöne in Moll und Dur:
   12-Bund-Griffbrett mit Grundton-Hervorhebung, wählbare Anschlagszahl,
   Wiederholungen pro Ton und automatische Kontrolle der gespielten Töne.
+- **Song-Modus** mit Akkord-Führung, Klick und automatischer Prüfung:
+  **Wonderwall** (Oasis) und **When I Come Around** (Green Day), jeweils als
+  Acht-Takt-Strophen-Loop auf `Em7 – G – Dsus4 – A7sus4`, Tempo 50–120 BPM,
+  ohne Capo.
 - **Statistik** pro Akkord (Treffer/Versuche) in `localStorage`, mit
   Gesamtquote, Reset und **CSV-Export** im Settings-Sheet.
+- **Persistente Einstellungen**: Modus, Metronom-BPM, Pentatonik-Auswahl,
+  Anschläge/Wiederholungen, Audio-Gerät und Tuner-Zielsaite überleben Reload
+  und Container-Neustarts.
 - **Metronom** 40–180 BPM (Standard **50 BPM**), 4/4, Beat-Dots mit Akzent auf
   Beat 1, Lookahead-Scheduling.
 - **Gerätewechsel** ohne Neustart: alter Stream wird gestoppt, der
@@ -67,7 +91,10 @@ unter „Audio-Eingang“.
    Wiederholungen pro Ton einstellen und „Übung starten“ antippen. Die App
    erwartet die Töne in der angezeigten Reihenfolge und quittiert jeden
    richtigen Anschlag automatisch.
-5. Im Settings-Sheet (Regler-Symbol) Audio-Eingang wählen, die Statistik
+5. Im Tab **Songs** ein Lied wählen, das Tempo einstellen und „Mitspielen
+   starten“ antippen. Die App zeigt den aktuellen und nächsten Akkord, spielt
+   den Klick und prüft die gespielten Akkorde.
+6. Im Settings-Sheet (Regler-Symbol) Audio-Eingang wählen, die Statistik
    einsehen, als CSV exportieren oder zurücksetzen.
 
 ## Projektstruktur
@@ -83,7 +110,9 @@ unter „Audio-Eingang“.
 │   │   ├── pitch.js        # YIN-Pitch-Erkennung für das Stimmgerät
 │   │   ├── tuning.js       # Saitenfrequenzen, Cent-Berechnung, Formatierung
 │   │   ├── pentatonic.js   # Skalen, Übungsfolgen und 12-Bund-Griffbrett
+│   │   ├── songs.js        # Song-Bibliothek und Akkord-Timing
 │   │   ├── stats.js        # Statistik-Persistenz, Migration, CSV-Export
+│   │   ├── prefs.js        # UI-Einstellungen persistent speichern
 │   │   ├── fretboard.js    # SVG-Griffbrett-Renderer
 │   │   ├── audio.js        # getUserMedia, AnalyserNode, Analyse-Loop
 │   │   ├── metronome.js    # Lookahead-Metronom
@@ -114,7 +143,7 @@ unter „Audio-Eingang“.
    `MIDI = 69 + 12·log2(f/440)` landet jeder Bin in einer von 12
    Pitch-Classes; der Vektor wird auf Länge 1 normalisiert. 70 Hz schneidet
    Netzbrummen und Raumpfeifen ab, 600 Hz deckt die Grundtöne und die
-   wichtigsten Obertöne der vier Akkorde ab.
+   wichtigsten Obertöne der fünf Akkorde ab.
 5. **Glättung**: Die letzten **8 Chromagramme** werden gemittelt. Bei einem
    Analyse-Tick alle 50 ms entspricht das **~400 ms** – lang genug gegen
    Zittern, kurz genug für direktes Feedback.
@@ -162,6 +191,32 @@ aber ab und analysiert den Zeitbereich:
    „Erkannt: … · Ziel …“ statt einer irreführenden Cent-Zahl.
 6. **Referenzton**: Ein kurzer Triangle-Oszillator (1,6 s) spielt die
    Sollfrequenz der gewählten Saite über denselben `AudioContext`.
+
+## Persistente Einstellungen
+
+Unter `guitarTrainer.prefs.v1` speichert die App die zuletzt verwendeten
+Einstellungen im Browser:
+
+```json
+{
+  "mode": "pentatonic",
+  "bpm": 123,
+  "tuningStringIndex": 1,
+  "scale": { "rootPc": 4, "type": "major", "attacks": 7, "repeats": 3 },
+  "deviceId": "..."
+}
+```
+
+- **Modus** (`trainer`, `tuner`, `pentatonic`, `song`)
+- **BPM** des Metronoms (40–180)
+- **Pentatonik**: Grundton, Moll/Dur, Anschläge und Wiederholungen pro Ton
+- **Audio-Gerät** (Device-ID; bei nicht mehr vorhandenem Gerät wird auf den
+  Standardeingang zurückgefallen)
+- **Tuner-Zielsaite** (E2 bis E4)
+
+Ungültige oder manipulierte Werte werden beim Laden begrenzt bzw. durch
+Defaults ersetzt. Die Daten bleiben im Browser und sind an die Origin gebunden
+(`localhost:8080`, `127.0.0.1:8080` und LAN-IP sind getrennte Speicher).
 
 ## Statistik & Export
 
@@ -213,16 +268,43 @@ Die Statistik liegt unter `guitarTrainer.stats.v2` in `localStorage`:
   erwarteten und den gehörten Ton; der Fortschritt bleibt stehen, bis der
   richtige Ton gespielt wird. Die Übung endet mit Trefferquote und Fehlerzahl.
 
+## Song-Modus
+
+Der Song-Modus führt durch einen Akkord-Loop und prüft die gespielten Akkorde
+mit derselben Chroma-Erkennung wie der Trainer.
+
+- **Bibliothek**: `app/js/songs.js`, aktuell **Wonderwall (Oasis)** und
+  **When I Come Around (Green Day)**. Beide nutzen den Acht-Takt-Strophen-Loop
+  `Em7 – G – Dsus4 – A7sus4` (zweimal), ein Akkord pro 4/4-Takt. „When I Come
+  Around“ ist auf diese Folge verschoben.
+- **Tempo**: 50–120 BPM, Standard je Song 87 BPM (Wonderwall) bzw. 98 BPM
+  (When I Come Around). Der Regler zeigt zusätzlich die Geschwindigkeit
+  relativ zum Original (100 % = Song-BPM).
+- **Akkorde**: Alle Song-Akkorde sind auch im Trainer verfügbar; `A7sus4` ist
+  als fünfter Trainer-Akkord ergänzt.
+- **Ablauf**: aktueller und nächster Akkord, Griffbrett-Diagramm, Takt-Leiste,
+  Klick und Beat-Dots. Nach acht Takten beginnt der Loop von vorn.
+- **Prüfung**: Bei jedem Taktwechsel wird der Zielakkord gesetzt und der
+  Detektor zurückgesetzt. Ein Treffer zählt nur, wenn der erkannte Akkord dem
+  Ziel entspricht; Treffer/Versuche werden separat von der Akkordstatistik
+  geführt.
+- **Capo**: Beide Übungsversionen nutzen offene Akkordformen **ohne Capo**,
+  damit die Erkennung zu den angezeigten Griffen passt.
+- **Inhalte**: Es werden keine Originalaufnahmen, Lyrics oder Melodien
+  eingebunden – nur Akkordfolge, Timing und ein synthetischer Klick.
+
 ## Tests
 
 Die DSP-Kette, YIN-Erkennung, Pentatonik-Logik, Statistik und das Metronom sind
 ohne Browser testbar. Die Tests synthetisieren Gitarrenakkorde und Saitentöne
 mit Obertönen, führen eine echte FFT aus und prüfen unter anderem:
 
-- Erkennung aller vier Akkorde und der sechs offenen Saiten,
+- Erkennung aller fünf Akkorde und der sechs offenen Saiten,
 - Cent-Genauigkeit, Oktavfehler-Stabilität und Stille,
 - Hysterese und Akkorddaten,
 - Pentatonik-Intervalle, Übungsfolgen, Griffbrettpositionen und SVG,
+- Song-Bibliothek, beide Strophen-Loops und A7sus4-Griff,
+- Einstellungs-Persistenz inkl. Validierung und Grenzwerten,
 - Statistik-Migration, Persistenz, CSV-Inhalt und Reset,
 - Metronom-Standard 50 BPM und BPM-Grenzen.
 
@@ -243,7 +325,7 @@ auch ohne TLS. Der Service Worker wird ebenfalls auf localhost registriert.
 
 - **Cache aktualisieren**: Nach Änderungen an Dateien in `app/` die
   `CACHE_VERSION` in `app/sw.js` erhöhen **und** die Versions-Query in
-  `app/index.html` sowie in der Precache-Liste anpassen (z. B. `?v=1.2.0`).
+  `app/index.html` sowie in der Precache-Liste anpassen (z. B. `?v=1.3.1`).
   So können installierte Clients nicht neues HTML mit altem JavaScript
   mischen.
 - **Icons neu generieren**: `python3 tools/generate_icons.py` (benötigt Pillow).
@@ -253,9 +335,9 @@ auch ohne TLS. Der Service Worker wird ebenfalls auf localhost registriert.
   `Referrer-Policy`, `Permissions-Policy` (Mikrofon nur self) und
   `X-Frame-Options`. Der Container läuft mit `no-new-privileges` und dropped
   Capabilities.
-- **Datenschutz**: Es gibt keinen Backend-Call. Audio und Statistik bleiben im
-  Browser; die Statistik liegt in `localStorage` und lässt sich im
-  Settings-Sheet löschen.
+- **Datenschutz**: Es gibt keinen Backend-Call. Audio und Einstellungen bleiben
+  im Browser; Statistik und Preferences liegen in `localStorage` und lassen
+  sich im Settings-Sheet bzw. über die Browserdaten löschen.
 
 ## Troubleshooting
 
@@ -277,14 +359,18 @@ auch ohne TLS. Der Service Worker wird ebenfalls auf localhost registriert.
 - **USB-Adapter fehlt**: Adapter anschließen, Settings öffnen, „Geräte neu
   laden“. Bei Linux ggf. `arecord -l` prüfen.
 - **Tabs reagieren nicht / alte Version**: Im Settings-Sheet muss **Version
-  1.2.0** stehen. Nach einem Image-Update `docker compose build --no-cache &&
+  1.3.1** stehen. Nach einem Image-Update `docker compose build --no-cache &&
   docker compose up -d` ausführen, die PWA schließen und neu öffnen. HTML und
-  JavaScript sind mit `?v=1.2.0` versioniert, damit kein altes JS aus dem
+  JavaScript sind mit `?v=1.3.1` versioniert, damit kein altes JS aus dem
   Browser- oder Service-Worker-Cache geladen wird.
 - **Pentatonik-Übung zählt nicht weiter**: Töne einzeln und mit kurzer Pause
   spielen; bei wiederholtem gleichem Ton kurz abdämpfen. Die App prüft die
   Pitch-Class, nicht die Oktave. Bei zu leiser Gitarre Pegel erhöhen oder
   Eingang prüfen.
+- **Song-Modus erkennt keinen Akkord**: Wonderwall als Übungsversion **ohne
+  Capo** mit den angezeigten offenen Griffen spielen; mit Capo 2 verschieben
+  sich die klingenden Töne und passen nicht zu den Templates. Akkord sauber
+  und lange genug klingen lassen.
 - **PWA installiert alte Version**: App schließen und neu öffnen; der Service
   Worker lädt im Hintergrund. Bei Entwicklung `CACHE_VERSION`, die
   Versions-Query in `index.html` und die Precache-Liste gemeinsam erhöhen und

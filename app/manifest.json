@@ -1,7 +1,7 @@
 {
   "name": "Gitarren-Akkord-Trainer",
   "short_name": "Akkord-Trainer",
-  "description": "E-Gitarren-Akkorde lernen, Gitarre stimmen und Pentatoniken mit Echtzeit-Tonprüfung üben.",
+  "description": "E-Gitarren-Akkorde lernen, Gitarre stimmen, Pentatoniken üben und bekannte Songs im eigenen Tempo nachspielen.",
   "lang": "de",
   "dir": "ltr",
   "start_url": "./",

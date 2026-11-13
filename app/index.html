@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#0f0f1e">
-  <meta name="description" content="E-Gitarren-Akkorde G, Cadd9, Em7 und Dsus4 lernen, Gitarre stimmen und Pentatoniken mit Echtzeit-Tonprüfung üben.">
+  <meta name="description" content="E-Gitarren-Akkorde lernen, Gitarre stimmen, Pentatoniken üben und bekannte Songs wie Wonderwall im eigenen Tempo nachspielen.">
   <meta name="color-scheme" content="dark">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -13,17 +13,19 @@
   <link rel="manifest" href="manifest.json">
   <link rel="icon" href="icons/favicon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="icons/icon-180.png">
-  <link rel="stylesheet" href="css/styles.css?v=1.2.0">
-  <script src="js/chords.js?v=1.2.0" defer></script>
-  <script src="js/detection.js?v=1.2.0" defer></script>
-  <script src="js/pitch.js?v=1.2.0" defer></script>
-  <script src="js/tuning.js?v=1.2.0" defer></script>
-  <script src="js/stats.js?v=1.2.0" defer></script>
-  <script src="js/pentatonic.js?v=1.2.0" defer></script>
-  <script src="js/fretboard.js?v=1.2.0" defer></script>
-  <script src="js/metronome.js?v=1.2.0" defer></script>
-  <script src="js/audio.js?v=1.2.0" defer></script>
-  <script src="js/app.js?v=1.2.0" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=1.3.1">
+  <script src="js/chords.js?v=1.3.1" defer></script>
+  <script src="js/detection.js?v=1.3.1" defer></script>
+  <script src="js/pitch.js?v=1.3.1" defer></script>
+  <script src="js/tuning.js?v=1.3.1" defer></script>
+  <script src="js/stats.js?v=1.3.1" defer></script>
+  <script src="js/prefs.js?v=1.3.1" defer></script>
+  <script src="js/pentatonic.js?v=1.3.1" defer></script>
+  <script src="js/songs.js?v=1.3.1" defer></script>
+  <script src="js/fretboard.js?v=1.3.1" defer></script>
+  <script src="js/metronome.js?v=1.3.1" defer></script>
+  <script src="js/audio.js?v=1.3.1" defer></script>
+  <script src="js/app.js?v=1.3.1" defer></script>
 </head>
 <body>
   <header class="app-header">
@@ -53,8 +55,8 @@
       </div>
       <h1 id="startTitle">Stimme deine Gitarre.<br>Dann spiel los.</h1>
       <p class="start-copy">
-        Der Trainer hört dir zu, erkennt <strong>G</strong>, <strong>Cadd9</strong>, <strong>Em7</strong> und
-        <strong>Dsus4</strong> – stimmt jede Saite und prüft deine Pentatonik-Übungen.
+        Der Trainer hört dir zu, erkennt <strong>G</strong>, <strong>Cadd9</strong>, <strong>Em7</strong>,
+        <strong>Dsus4</strong> und <strong>A7sus4</strong> – stimmt jede Saite, prüft Pentatonik und begleitet dich durch Songs.
       </p>
       <button id="startBtn" class="btn btn-primary btn-lg" type="button">
         <span aria-hidden="true">🎤</span> Mikrofon aktivieren
@@ -73,6 +75,7 @@
         <button id="modeTrainerBtn" class="mode-btn active" type="button" aria-pressed="true">Trainer</button>
         <button id="modeTunerBtn" class="mode-btn" type="button" aria-pressed="false">Stimmen</button>
         <button id="modePentatonicBtn" class="mode-btn" type="button" aria-pressed="false">Pentatonik</button>
+        <button id="modeSongBtn" class="mode-btn" type="button" aria-pressed="false">Songs</button>
       </nav>
 
       <div id="trainerView">
@@ -257,6 +260,80 @@
           </p>
         </section>
       </div>
+
+      <div id="songView" hidden>
+        <section class="card song-card" aria-labelledby="songHeading">
+          <div class="card-head">
+            <div>
+              <p class="eyebrow">Song</p>
+              <h2 id="songHeading">Wonderwall</h2>
+            </div>
+            <span id="songMeta" class="pill">Oasis · 87 BPM</span>
+          </div>
+
+          <label class="field-label song-field-label" for="songSelect">Lied wählen</label>
+          <select id="songSelect" class="select"></select>
+          <p id="songInfo" class="chord-tip song-info"></p>
+
+          <div class="song-current">
+            <div class="song-current-main">
+              <span class="practice-target-label">Jetzt</span>
+              <span id="songChord" class="song-chord">Em7</span>
+              <span id="songChordName" class="song-chord-name">E-Moll 7</span>
+            </div>
+            <div class="song-next-wrap">
+              <span>Nächster</span>
+              <strong id="songNext">G</strong>
+            </div>
+          </div>
+
+          <div id="songFretboard" class="fretboard-wrap song-fretboard"></div>
+          <div id="songTimeline" class="song-timeline" aria-label="Akkordfolge"></div>
+        </section>
+
+        <section id="songControls" class="card song-controls" aria-labelledby="songControlHeading">
+          <div class="card-head card-head-compact">
+            <div class="status-block">
+              <span id="songDot" class="status-dot" aria-hidden="true"></span>
+              <div>
+                <p class="eyebrow" id="songControlHeading">Playback</p>
+                <h2 id="songStatus">Bereit zum Mitspielen</h2>
+              </div>
+            </div>
+            <span id="songProgressLabel" class="pill pill-score">1 / 8</span>
+          </div>
+
+          <div id="songMeter" class="meter" role="progressbar" aria-label="Akkord-Ähnlichkeit"
+               aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+            <div id="songMeterFill" class="meter-fill"></div>
+          </div>
+          <div class="detection-foot">
+            <span id="songLevel">Pegel: still</span>
+            <span id="songScore">Treffer: 0 / 0</span>
+          </div>
+
+          <div class="song-tempo-control">
+            <label for="songBpmSlider">
+              <span>Tempo</span>
+              <output id="songBpmValue" for="songBpmSlider">87 BPM · 100 %</output>
+            </label>
+            <input id="songBpmSlider" class="slider" type="range" min="50" max="120" step="1" value="87">
+          </div>
+
+          <div id="songBeatDots" class="beat-row" aria-hidden="true">
+            <span class="beat-dot beat-accent"></span>
+            <span class="beat-dot"></span>
+            <span class="beat-dot"></span>
+            <span class="beat-dot"></span>
+          </div>
+
+          <button id="songStart" class="btn btn-primary btn-full" type="button">Mitspielen starten</button>
+          <button id="songStop" class="btn btn-secondary btn-full" type="button" hidden>Stoppen</button>
+          <p id="songHint" class="chord-tip song-hint">
+            Spiele die Akkorde im Takt mit. Der Klick läuft mit; die Erkennung prüft jeden Akkord.
+          </p>
+        </section>
+      </div>
     </div>
   </main>
 
@@ -292,7 +369,7 @@
         <button id="exportStats" class="btn btn-secondary btn-full" type="button">Statistik als CSV exportieren</button>
         <button id="resetStats" class="btn btn-danger btn-full" type="button">Statistik zurücksetzen</button>
       </div>
-      <p class="fineprint version">Version 1.2.0 · Läuft vollständig offline</p>
+      <p class="fineprint version">Version 1.3.1 · Läuft vollständig offline</p>
     </div>
   </div>
 
@@ -300,5 +377,6 @@
   <p id="liveStatus" class="sr-only" aria-live="polite" aria-atomic="true"></p>
   <p id="tunerLive" class="sr-only" aria-live="polite" aria-atomic="true"></p>
   <p id="practiceLive" class="sr-only" aria-live="polite" aria-atomic="true"></p>
+  <p id="songLive" class="sr-only" aria-live="polite" aria-atomic="true"></p>
 </body>
 </html>

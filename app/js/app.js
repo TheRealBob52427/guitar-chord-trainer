@@ -12,6 +12,7 @@
     renderFretboard,
     DEFAULTS,
     Stats,
+    Prefs,
     TUNING_STRINGS,
     GAUGE_RANGE_CENTS,
     frequencyToNote,
@@ -23,11 +24,15 @@
     scalePitchClasses,
     scaleLabel,
     buildSequence: buildPentatonicSequence,
-    renderPentatonicFretboard
+    renderPentatonicFretboard,
+    SONGS,
+    getSong,
+    songLabel
   } = window.ChordTrainer;
   const MATCH_SCORE = DEFAULTS.matchThreshold;
   const MIN_BPM = 40;
   const MAX_BPM = 180;
+  const storedPrefs = Prefs.loadPrefs(window.localStorage);
 
   const els = {
     startScreen: document.getElementById('startScreen'),
@@ -37,9 +42,11 @@
     modeTrainerBtn: document.getElementById('modeTrainerBtn'),
     modeTunerBtn: document.getElementById('modeTunerBtn'),
     modePentatonicBtn: document.getElementById('modePentatonicBtn'),
+    modeSongBtn: document.getElementById('modeSongBtn'),
     trainerView: document.getElementById('trainerView'),
     tunerView: document.getElementById('tunerView'),
     pentatonicView: document.getElementById('pentatonicView'),
+    songView: document.getElementById('songView'),
     tunerCard: document.getElementById('tunerCard'),
     tunerNote: document.getElementById('tunerNote'),
     tunerCents: document.getElementById('tunerCents'),
@@ -76,6 +83,30 @@
     practiceStop: document.getElementById('practiceStop'),
     practiceHint: document.getElementById('practiceHint'),
     practiceLive: document.getElementById('practiceLive'),
+    songHeading: document.getElementById('songHeading'),
+    songMeta: document.getElementById('songMeta'),
+    songSelect: document.getElementById('songSelect'),
+    songInfo: document.getElementById('songInfo'),
+    songChord: document.getElementById('songChord'),
+    songChordName: document.getElementById('songChordName'),
+    songNext: document.getElementById('songNext'),
+    songFretboard: document.getElementById('songFretboard'),
+    songTimeline: document.getElementById('songTimeline'),
+    songControls: document.getElementById('songControls'),
+    songDot: document.getElementById('songDot'),
+    songStatus: document.getElementById('songStatus'),
+    songProgressLabel: document.getElementById('songProgressLabel'),
+    songMeter: document.getElementById('songMeter'),
+    songMeterFill: document.getElementById('songMeterFill'),
+    songLevel: document.getElementById('songLevel'),
+    songScore: document.getElementById('songScore'),
+    songBpmSlider: document.getElementById('songBpmSlider'),
+    songBpmValue: document.getElementById('songBpmValue'),
+    songBeatDots: document.getElementById('songBeatDots'),
+    songStart: document.getElementById('songStart'),
+    songStop: document.getElementById('songStop'),
+    songHint: document.getElementById('songHint'),
+    songLive: document.getElementById('songLive'),
     chordHeading: document.getElementById('chordHeading'),
     chordNotes: document.getElementById('chordNotes'),
     chordTip: document.getElementById('chordTip'),
@@ -108,15 +139,15 @@
 
   const state = {
     chordId: 'G',
-    mode: 'trainer',
-    tuningStringIndex: 0,
+    mode: storedPrefs.mode,
+    tuningStringIndex: storedPrefs.tuningStringIndex,
     tunerSmoothCents: null,
     tunerWasInTune: false,
     scale: {
-      rootPc: 9,
-      type: 'minor',
-      attacks: 15,
-      repeats: 2,
+      rootPc: storedPrefs.scale.rootPc,
+      type: storedPrefs.scale.type,
+      attacks: storedPrefs.scale.attacks,
+      repeats: storedPrefs.scale.repeats,
       sequence: [],
       active: false,
       index: 0,
@@ -131,8 +162,21 @@
       graceUntil: 0,
       feedbackUntil: 0
     },
+    song: {
+      songId: SONGS[0].id,
+      tempo: SONGS[0].bpm,
+      active: false,
+      barIndex: 0,
+      attempts: 0,
+      correct: 0,
+      started: false,
+      lastAttemptAt: 0,
+      feedbackUntil: 0,
+      barChangedAt: 0,
+      beatTimeout: null
+    },
     running: false,
-    selectedDeviceId: '',
+    selectedDeviceId: storedPrefs.deviceId,
     stats: Stats.loadStats(window.localStorage, CHORD_ORDER),
     statusHoldUntil: 0,
     beatTimeout: null,
@@ -150,10 +194,33 @@
   const metronome = new Metronome({
     getContext: () => engine.ctx,
     onBeat: handleBeat,
-    onStateChange: handleMetroState
+    onStateChange: handleMetroState,
+    bpm: storedPrefs.bpm
+  });
+
+  const songMetronome = new Metronome({
+    getContext: () => engine.ctx,
+    onBeat: handleSongBeat,
+    onStateChange: handleSongMetroState,
+    bpm: SONGS[0].bpm
   });
 
   const START_BTN_HTML = '<span aria-hidden="true">🎤</span> Mikrofon aktivieren';
+
+  function persistPrefs() {
+    Prefs.savePrefs(window.localStorage, {
+      mode: state.mode,
+      bpm: metronome.bpm,
+      tuningStringIndex: state.tuningStringIndex,
+      scale: {
+        rootPc: state.scale.rootPc,
+        type: state.scale.type,
+        attacks: state.scale.attacks,
+        repeats: state.scale.repeats
+      },
+      deviceId: state.selectedDeviceId
+    });
+  }
 
   /* ---------- Statistik ---------- */
 
@@ -240,6 +307,10 @@
   }
 
   function handleUpdate(update) {
+    if (state.mode === 'song') {
+      handleSongUpdate(update);
+      return;
+    }
     const target = CHORDS[state.chordId];
     const score = update.silent ? 0 : update.bestScore;
     const percent = Math.max(0, Math.min(100, Math.round(score * 100)));
@@ -265,6 +336,10 @@
   }
 
   function handleAttempt(attempt) {
+    if (state.mode === 'song') {
+      handleSongAttempt(attempt);
+      return;
+    }
     const target = CHORDS[state.chordId];
     const heard = CHORDS[attempt.id];
     const success = attempt.id === target.id;
@@ -344,22 +419,28 @@
   /* ---------- Modus & Stimmgerät ---------- */
 
   function applyMode(mode) {
-    const next = (mode === 'tuner' || mode === 'pentatonic') ? mode : 'trainer';
+    const next = (mode === 'tuner' || mode === 'pentatonic' || mode === 'song') ? mode : 'trainer';
     const tunerActive = next === 'tuner';
     const pentatonicActive = next === 'pentatonic';
+    const songActive = next === 'song';
     state.mode = next;
     engine.stopReferenceTone();
 
     els.modeTrainerBtn.classList.toggle('active', next === 'trainer');
     els.modeTunerBtn.classList.toggle('active', tunerActive);
     els.modePentatonicBtn.classList.toggle('active', pentatonicActive);
+    els.modeSongBtn.classList.toggle('active', songActive);
     els.modeTrainerBtn.setAttribute('aria-pressed', String(next === 'trainer'));
     els.modeTunerBtn.setAttribute('aria-pressed', String(tunerActive));
     els.modePentatonicBtn.setAttribute('aria-pressed', String(pentatonicActive));
+    els.modeSongBtn.setAttribute('aria-pressed', String(songActive));
 
     els.trainerView.hidden = next !== 'trainer';
     els.tunerView.hidden = !tunerActive;
     els.pentatonicView.hidden = !pentatonicActive;
+    els.songView.hidden = !songActive;
+
+    if (!songActive) stopSong();
 
     if (tunerActive) {
       stopPractice();
@@ -374,11 +455,21 @@
       metronome.stop();
       engine.setMode('scale');
       updateScaleDisplay();
+    } else if (songActive) {
+      stopPractice();
+      metronome.stop();
+      stopSong();
+      engine.setChordOrder(CHORD_ORDER);
+      engine.setMode('chords');
+      initSongView();
     } else {
       stopPractice();
+      stopSong();
       engine.setMode('chords');
       selectChord(state.chordId);
     }
+
+    persistPrefs();
   }
 
   function buildTunerStrings() {
@@ -423,6 +514,7 @@
     engine.stopReferenceTone();
     updateTunerTarget();
     resetTunerDisplay();
+    persistPrefs();
   }
 
   function setTunerStatus(text, kind) {
@@ -533,6 +625,7 @@
     stopPractice();
     updateScaleDisplay();
     refreshPracticeSequence();
+    persistPrefs();
   }
 
   function updateScaleDisplay() {
@@ -622,6 +715,8 @@
   function syncPracticeControls() {
     els.attacksValue.textContent = String(state.scale.attacks);
     els.repeatsValue.textContent = `${state.scale.repeats}×`;
+    els.scaleAttacks.value = String(state.scale.attacks);
+    els.scaleRepeats.value = String(state.scale.repeats);
     updateScaleSliderFill(els.scaleAttacks, state.scale.attacks, 5, 40);
     updateScaleSliderFill(els.scaleRepeats, state.scale.repeats, 1, 4);
   }
@@ -866,6 +961,305 @@
     }
   }
 
+  /* ---------- Song-Modus ---------- */
+
+  function currentSong() {
+    return getSong(state.song.songId);
+  }
+
+  function handleSongMetroState(playing) {
+    if (playing) return;
+    // Wenn der Scheduler unerwartet endet, darf die UI nicht "läuft" zeigen.
+    if (state.song.active) {
+      state.song.active = false;
+      els.songStart.hidden = false;
+      els.songStop.hidden = true;
+      els.songSelect.disabled = false;
+      setSongStatus('Gestoppt', '');
+    }
+  }
+
+  function setSongStatus(text, kind) {
+    if (els.songStatus.textContent !== text) els.songStatus.textContent = text;
+    els.songDot.className = 'status-dot' + (kind ? ` is-${kind}` : '');
+  }
+
+  function setSongTempo(value) {
+    const song = currentSong();
+    const tempo = Math.max(50, Math.min(120, Math.round(Number(value) || song.bpm)));
+    state.song.tempo = tempo;
+    const percent = Math.round((tempo / song.bpm) * 100);
+    els.songBpmSlider.value = String(tempo);
+    els.songBpmValue.textContent = `${tempo} BPM · ${percent} %`;
+    els.songBpmSlider.style.setProperty('--fill', `${(((tempo - 50) / 70) * 100).toFixed(1)}%`);
+    if (songMetronome.playing) songMetronome.setBpm(tempo);
+  }
+
+  function buildSongOptions() {
+    els.songSelect.textContent = '';
+    SONGS.forEach((song) => {
+      els.songSelect.add(new Option(`${song.title} · ${song.artist}`, song.id));
+    });
+    els.songSelect.value = state.song.songId;
+  }
+
+  function renderSongTimeline() {
+    els.songTimeline.textContent = '';
+    const song = currentSong();
+    song.bars.forEach((chordId, index) => {
+      const chip = document.createElement('span');
+      chip.className = 'song-bar';
+      chip.dataset.index = String(index);
+      chip.textContent = chordId;
+      chip.title = `${index + 1}. Takt · ${CHORDS[chordId].name}`;
+      els.songTimeline.append(chip);
+    });
+    updateSongTimeline();
+  }
+
+  function updateSongTimeline() {
+    const bars = els.songTimeline.children;
+    const current = state.song.barIndex;
+    const next = (current + 1) % Math.max(1, bars.length);
+    for (let i = 0; i < bars.length; i += 1) {
+      bars[i].classList.toggle('is-current', i === current);
+      bars[i].classList.toggle('is-next', i === next && next !== current);
+      bars[i].classList.toggle('is-done', i < current);
+    }
+  }
+
+  function renderSongBar() {
+    const song = currentSong();
+    const bars = song.bars;
+    if (!bars.length) return;
+    if (state.song.barIndex >= bars.length) state.song.barIndex = 0;
+    const chord = CHORDS[bars[state.song.barIndex]];
+    const next = CHORDS[bars[(state.song.barIndex + 1) % bars.length]];
+
+    els.songChord.textContent = chord.symbol;
+    els.songChordName.textContent = chord.name;
+    els.songNext.textContent = next.symbol;
+    els.songProgressLabel.textContent = `${state.song.barIndex + 1} / ${bars.length}`;
+    els.songFretboard.innerHTML = renderFretboard(chord);
+    updateSongTimeline();
+  }
+
+  function renderSongScore() {
+    els.songScore.textContent = `Treffer: ${state.song.correct} / ${state.song.attempts}`;
+  }
+
+  function resetSongMeter() {
+    els.songMeterFill.style.width = '0%';
+    els.songMeter.setAttribute('aria-valuenow', '0');
+    els.songLevel.textContent = 'Pegel: still';
+    els.songControls.classList.remove('is-good');
+    els.songControls.classList.remove('is-warn');
+  }
+
+  function initSongView() {
+    const song = currentSong();
+    state.song.songId = song.id;
+    if (!Number.isFinite(state.song.tempo) || state.song.tempo <= 0) {
+      state.song.tempo = song.bpm;
+    }
+
+    els.songHeading.textContent = song.title;
+    els.songMeta.textContent = `${song.artist} · ${song.bpm} BPM`;
+    els.songInfo.textContent = song.description;
+    els.songSelect.value = song.id;
+    els.songSelect.disabled = false;
+    els.songStart.hidden = false;
+    els.songStart.textContent = 'Mitspielen starten';
+    els.songStop.hidden = true;
+    els.songHint.textContent = 'Spiele die Akkorde im Takt mit. Der Klick läuft mit; die Erkennung prüft jeden Akkord.';
+    setSongTempo(state.song.tempo);
+    renderSongBar();
+    renderSongTimeline();
+    renderSongScore();
+    resetSongMeter();
+    clearSongBeatDots();
+    setSongStatus('Bereit zum Mitspielen', '');
+  }
+
+  function clearSongBeatDots() {
+    const dots = els.songBeatDots.children;
+    for (let i = 0; i < dots.length; i += 1) dots[i].classList.remove('active');
+  }
+
+  function updateSongBeatDots(beat) {
+    const dots = els.songBeatDots.children;
+    for (let i = 0; i < dots.length; i += 1) {
+      dots[i].classList.toggle('active', i === beat);
+    }
+    window.clearTimeout(state.song.beatTimeout);
+    state.song.beatTimeout = window.setTimeout(clearSongBeatDots, 150);
+  }
+
+  function handleSongBeat(beat) {
+    if (!state.song.active) return;
+    updateSongBeatDots(beat);
+    if (beat !== 0) return;
+
+    if (!state.song.started) {
+      state.song.started = true;
+      return;
+    }
+
+    const song = currentSong();
+    state.song.barIndex = (state.song.barIndex + 1) % song.bars.length;
+    state.song.feedbackUntil = 0;
+    state.song.barChangedAt = performance.now();
+    engine.resetDetection();
+    renderSongBar();
+    resetSongMeter();
+    const chord = CHORDS[song.bars[state.song.barIndex]];
+    els.songHint.textContent = `Jetzt ${chord.symbol} – spiele den Akkord im Takt.`;
+    setSongStatus(`Spiele ${chord.symbol} …`, 'listening');
+  }
+
+  function pulseSongCard() {
+    els.songControls.classList.remove('pulse');
+    void els.songControls.offsetWidth;
+    els.songControls.classList.add('pulse');
+    window.setTimeout(() => els.songControls.classList.remove('pulse'), 760);
+  }
+
+  function handleSongUpdate(update) {
+    if (!state.song.active) return;
+    const song = currentSong();
+    const target = CHORDS[song.bars[state.song.barIndex]];
+    if (!target) return;
+
+    const score = update.silent ? 0 : update.bestScore;
+    const percent = Math.max(0, Math.min(100, Math.round(score * 100)));
+    const detected = update.bestId && update.bestScore >= MATCH_SCORE ? CHORDS[update.bestId] : null;
+
+    els.songMeterFill.style.width = `${percent}%`;
+    els.songMeter.setAttribute('aria-valuenow', String(percent));
+    els.songLevel.textContent = update.silent ? 'Pegel: still' : `Pegel: ${Math.round(update.levelDb)} dB`;
+    els.songControls.classList.toggle('is-good', Boolean(detected && detected.id === target.id));
+    els.songControls.classList.toggle('is-warn', Boolean(detected && detected.id !== target.id));
+
+    if (performance.now() < state.song.feedbackUntil) return;
+
+    if (detected && detected.id === target.id) {
+      setSongStatus(`${target.symbol} erkannt ✓`, 'good');
+    } else if (detected) {
+      setSongStatus(`Gehört: ${detected.symbol}`, 'warn');
+    } else if (update.silent) {
+      setSongStatus(`Spiele ${target.symbol} …`, 'listening');
+    } else {
+      setSongStatus(`Spiele ${target.symbol} …`, 'listening');
+    }
+  }
+
+  function handleSongAttempt(attempt) {
+    if (!state.song.active) return;
+    if (performance.now() - state.song.barChangedAt < 250) return;
+    const song = currentSong();
+    const target = CHORDS[song.bars[state.song.barIndex]];
+    const heard = CHORDS[attempt.id];
+    if (!target || !heard) return;
+
+    state.song.attempts += 1;
+    const success = heard.id === target.id;
+    if (success) state.song.correct += 1;
+    state.song.feedbackUntil = performance.now() + 1200;
+    renderSongScore();
+
+    if (success) {
+      setSongStatus(`${target.symbol} erkannt ✓`, 'good');
+      els.songHint.textContent = `${target.symbol} sitzt. Weiter im Takt.`;
+      pulseSongCard();
+      if (navigator.vibrate) navigator.vibrate(20);
+    } else {
+      setSongStatus(`Gehört: ${heard.symbol}`, 'warn');
+      els.songHint.textContent = `Erwartet ${target.symbol} – nochmal im Takt versuchen.`;
+    }
+
+    if (els.songLive) {
+      els.songLive.textContent = success
+        ? `${target.name} richtig.`
+        : `Falscher Akkord. Gehört: ${heard.name}. Erwartet: ${target.name}.`;
+    }
+  }
+
+  async function startSong() {
+    if (!state.running) {
+      toast('Bitte zuerst das Mikrofon aktivieren.');
+      return;
+    }
+    const song = currentSong();
+    songMetronome.stop();
+
+    state.song.active = true;
+    state.song.barIndex = 0;
+    state.song.attempts = 0;
+    state.song.correct = 0;
+    state.song.started = false;
+    state.song.feedbackUntil = 0;
+    state.song.barChangedAt = 0;
+
+    engine.setChordOrder(song.chordOrder);
+    engine.setMode('chords');
+    engine.resetDetection();
+    songMetronome.setBpm(state.song.tempo);
+
+    els.songSelect.disabled = true;
+    els.songStart.hidden = true;
+    els.songStop.hidden = false;
+    els.songControls.classList.remove('is-good');
+    els.songControls.classList.remove('is-warn');
+    els.songHint.textContent = 'Spiele die Akkorde im Takt mit. Der Klick läuft mit; die Erkennung prüft jeden Akkord.';
+    renderSongBar();
+    renderSongScore();
+    resetSongMeter();
+    clearSongBeatDots();
+    setSongStatus(`Spiele ${CHORDS[song.bars[0]].symbol} …`, 'listening');
+
+    try {
+      await songMetronome.start();
+    } catch (error) {
+      state.song.active = false;
+      els.songStart.hidden = false;
+      els.songStop.hidden = true;
+      els.songSelect.disabled = false;
+      setSongStatus('Start fehlgeschlagen', 'warn');
+      toast('Song konnte nicht gestartet werden.');
+      return;
+    }
+
+    if (els.songLive) {
+      els.songLive.textContent = `${song.title} gestartet. Erster Akkord: ${CHORDS[song.bars[0]].name}.`;
+    }
+  }
+
+  function stopSong() {
+    state.song.active = false;
+    state.song.started = false;
+    state.song.barIndex = 0;
+    state.song.attempts = 0;
+    state.song.correct = 0;
+    state.song.feedbackUntil = 0;
+    if (songMetronome.playing) songMetronome.stop();
+    engine.setChordOrder(CHORD_ORDER);
+
+    window.clearTimeout(state.song.beatTimeout);
+    clearSongBeatDots();
+    resetSongMeter();
+    renderSongScore();
+    if (els.songStart) {
+      els.songStart.hidden = false;
+      els.songStart.textContent = 'Mitspielen starten';
+      els.songStop.hidden = true;
+      els.songSelect.disabled = false;
+      renderSongBar();
+      if (els.songTimeline.children.length) updateSongTimeline();
+      setSongStatus('Bereit zum Mitspielen', '');
+      els.songHint.textContent = 'Spiele die Akkorde im Takt mit. Der Klick läuft mit; die Erkennung prüft jeden Akkord.';
+    }
+  }
+
   /* ---------- Mikrofon ---------- */
 
   async function startMic() {
@@ -881,7 +1275,8 @@
     try {
       const info = await engine.start(state.selectedDeviceId || undefined);
       state.running = true;
-      state.selectedDeviceId = info.deviceId || state.selectedDeviceId;
+      state.selectedDeviceId = info.deviceId || '';
+      persistPrefs();
       els.startScreen.hidden = true;
       els.mainApp.hidden = false;
       applyMode(state.mode);
@@ -917,6 +1312,7 @@
   function handleTrackEnded() {
     state.running = false;
     stopPractice();
+    stopSong();
     metronome.stop();
     els.mainApp.hidden = true;
     els.startScreen.hidden = false;
@@ -963,12 +1359,14 @@
 
   async function switchDevice(deviceId) {
     state.selectedDeviceId = deviceId;
+    persistPrefs();
     if (!state.running) return;
 
     const previous = engine.deviceId;
     try {
       const info = await engine.start(deviceId || undefined);
-      state.selectedDeviceId = info.deviceId || deviceId;
+      state.selectedDeviceId = info.deviceId || '';
+      persistPrefs();
       applyMode(state.mode);
       toast(info.label ? `Eingang: ${info.label}` : 'Eingang gewechselt');
       refreshDevices();
@@ -978,6 +1376,7 @@
         try {
           await engine.start(previous);
           state.selectedDeviceId = previous;
+          persistPrefs();
           applyMode(state.mode);
         } catch (fallbackError) {
           state.running = false;
@@ -1002,6 +1401,7 @@
     els.bpmSlider.value = String(bpm);
     els.bpmValue.textContent = String(bpm);
     updateSliderFill(bpm);
+    persistPrefs();
   }
 
   function handleBeat(beat) {
@@ -1107,13 +1507,31 @@
     els.modeTrainerBtn.addEventListener('click', () => applyMode('trainer'));
     els.modeTunerBtn.addEventListener('click', () => applyMode('tuner'));
     els.modePentatonicBtn.addEventListener('click', () => applyMode('pentatonic'));
+    els.modeSongBtn.addEventListener('click', () => applyMode('song'));
     els.refToneBtn.addEventListener('click', playReferenceTone);
+
+    els.songSelect.addEventListener('change', (event) => {
+      stopSong();
+      state.song.songId = event.target.value;
+      const song = currentSong();
+      state.song.tempo = song.bpm;
+      initSongView();
+    });
+    els.songBpmSlider.addEventListener('input', (event) => {
+      setSongTempo(event.target.value);
+    });
+    els.songStart.addEventListener('click', () => { startSong(); });
+    els.songStop.addEventListener('click', () => {
+      stopSong();
+      toast('Song gestoppt');
+    });
 
     els.scaleRoot.addEventListener('change', (event) => {
       state.scale.rootPc = Number(event.target.value);
       stopPractice();
       updateScaleDisplay();
       refreshPracticeSequence();
+      persistPrefs();
     });
     els.scaleMinorBtn.addEventListener('click', () => applyScaleType('minor'));
     els.scaleMajorBtn.addEventListener('click', () => applyScaleType('major'));
@@ -1123,12 +1541,14 @@
       syncPracticeControls();
       stopPractice();
       refreshPracticeSequence();
+      persistPrefs();
     });
     els.scaleRepeats.addEventListener('input', (event) => {
       state.scale.repeats = Number(event.target.value);
       syncPracticeControls();
       stopPractice();
       refreshPracticeSequence();
+      persistPrefs();
     });
 
     els.practiceStart.addEventListener('click', startPractice);
@@ -1151,11 +1571,15 @@
     els.metroToggle.addEventListener('click', toggleMetronome);
 
     document.addEventListener('visibilitychange', () => {
-      if (document.hidden) metronome.stop();
+      if (document.hidden) {
+        metronome.stop();
+        stopSong();
+      }
     });
 
     window.addEventListener('pagehide', () => {
       metronome.stop();
+      stopSong();
       engine.stopStream();
     });
 
@@ -1165,6 +1589,7 @@
       // wieder am Start-Screen aufsetzen.
       state.running = false;
       stopPractice();
+      stopSong();
       els.mainApp.hidden = true;
       els.startScreen.hidden = false;
       resetMeter();
@@ -1190,11 +1615,13 @@
     refreshPracticeSequence();
     syncPracticeControls();
     stopPractice();
+    buildSongOptions();
+    initSongView();
     renderStats();
     updateTunerTarget();
     setBpm(metronome.bpm);
     bindEvents();
-    applyMode('trainer');
+    applyMode(state.mode);
 
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {

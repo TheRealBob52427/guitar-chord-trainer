@@ -25,7 +25,7 @@ test('Leere Statistik ist konsistent', () => {
   const summary = Stats.summarize(stats, CHORD_ORDER);
   assert.equal(summary.percent, 0);
   assert.equal(summary.unassignedTotal, 0);
-  assert.equal(summary.rows.length, 4);
+  assert.equal(summary.rows.length, 5);
 });
 
 test('Treffer werden global und pro Akkord gezählt', () => {

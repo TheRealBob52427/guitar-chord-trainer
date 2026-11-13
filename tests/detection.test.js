@@ -107,7 +107,8 @@ const VOICINGS = {
   G: [43, 47, 50, 55, 59, 67],
   Cadd9: [48, 52, 55, 62, 67],
   Em7: [40, 47, 52, 55, 62, 64],
-  Dsus4: [50, 57, 62, 67]
+  Dsus4: [50, 57, 62, 67],
+  A7sus4: [45, 52, 55, 62, 64]
 };
 
 test('FFT-Sanity: 440-Hz-Sinus liegt im erwarteten Bin', () => {
@@ -122,7 +123,7 @@ test('FFT-Sanity: 440-Hz-Sinus liegt im erwarteten Bin', () => {
   assert.ok(Math.abs(peak * binHz - 440) < binHz, `Peak bei ${peak * binHz} Hz`);
 });
 
-test('Chromagramm erkennt alle vier Akkorde korrekt', () => {
+test('Chromagramm erkennt alle fünf Akkorde korrekt', () => {
   CHORD_ORDER.forEach((id) => {
     const chroma = chromaFor(VOICINGS[id]);
     let bestId = null;
@@ -226,11 +227,14 @@ test('Akkord-Daten entsprechen den geforderten Voicings', () => {
   assert.deepEqual(CHORDS.Cadd9.strings, [-1, 3, 2, 0, 3, 3]);
   assert.deepEqual(CHORDS.Em7.strings, [0, 2, 2, 0, 3, 0]);
   assert.deepEqual(CHORDS.Dsus4.strings, [-1, -1, 0, 2, 3, 3]);
+  assert.deepEqual(CHORDS.A7sus4.strings, [-1, 0, 2, 0, 3, 0]);
   assert.deepEqual(CHORDS.G.frets, CHORDS.G.strings);
   assert.deepEqual(CHORDS.Dsus4.frets, CHORDS.Dsus4.strings);
+  assert.deepEqual(CHORDS.A7sus4.frets, CHORDS.A7sus4.strings);
 
   assert.deepEqual(CHORDS.G.pitchClasses, [7, 11, 2]);
   assert.deepEqual(CHORDS.Cadd9.pitchClasses, [0, 4, 7, 2]);
   assert.deepEqual(CHORDS.Em7.pitchClasses, [4, 7, 11, 2]);
   assert.deepEqual(CHORDS.Dsus4.pitchClasses, [2, 7, 9]);
+  assert.deepEqual(CHORDS.A7sus4.pitchClasses, [9, 4, 7, 2]);
 });

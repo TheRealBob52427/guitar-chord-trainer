@@ -54,14 +54,24 @@
       strings: [-1, -1, 0, 2, 3, 3],
       fingers: [0, 0, 0, 1, 3, 4],
       tip: 'Zeigefinger auf die G-Saite (2. Bund), Ring- und kleiner Finger auf die 3. Bünde von B- und hoher E-Saite.'
+    },
+    A7sus4: {
+      id: 'A7sus4',
+      name: 'A7sus4',
+      symbol: 'A7sus4',
+      notes: ['A', 'E', 'G', 'D'],
+      pitchClasses: [9, 4, 7, 2],
+      strings: [-1, 0, 2, 0, 3, 0],
+      fingers: [0, 0, 1, 0, 3, 0],
+      tip: 'Offene A-Saite, Zeigefinger auf die D-Saite (2. Bund), Ringfinger auf die B-Saite (3. Bund); G- und hohe E-Saite bleiben offen.'
     }
   };
 
-  const CHORD_ORDER = ['G', 'Cadd9', 'Em7', 'Dsus4'];
+  const CHORD_ORDER = ['G', 'Cadd9', 'Em7', 'Dsus4', 'A7sus4'];
 
-  // Rückwärtskompatibler Alias: `strings` ist kanonisch, `frets` wird überall
-  // im Renderer und in den Tests verwendet.
-  CHORD_ORDER.forEach((id) => {
+  // `strings` ist kanonisch, `frets` wird überall im Renderer und in den Tests
+  // verwendet.
+  Object.keys(CHORDS).forEach((id) => {
     CHORDS[id].frets = CHORDS[id].strings;
   });
 

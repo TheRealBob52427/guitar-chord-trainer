@@ -34,6 +34,7 @@
         global.ChordTrainer.CHORD_ORDER,
         global.ChordTrainer.CHORDS
       );
+      this.chordOrder = global.ChordTrainer.CHORD_ORDER.slice();
 
       this._tick = this._tick.bind(this);
     }
@@ -189,6 +190,15 @@
 
     resetDetection() {
       this.matcher.reset();
+    }
+
+    setChordOrder(order) {
+      const chords = global.ChordTrainer.CHORDS;
+      const valid = Array.isArray(order) && order.length > 0
+        ? order.filter((id) => Boolean(chords[id]))
+        : global.ChordTrainer.CHORD_ORDER;
+      this.chordOrder = valid.slice();
+      this.matcher = new global.ChordTrainer.ChordMatcher(this.chordOrder, chords);
     }
 
     setMode(mode) {
