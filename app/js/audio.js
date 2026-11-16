@@ -29,6 +29,7 @@
       this._pitchTick = 0;
       this._referenceOsc = null;
       this._referenceGain = null;
+      this._sequenceNodes = [];
 
       this.matcher = new global.ChordTrainer.ChordMatcher(
         global.ChordTrainer.CHORD_ORDER,
@@ -152,6 +153,7 @@
 
     stopStream() {
       this.stopReferenceTone();
+      this.stopToneSequence();
       if (this.timer !== null) {
         clearInterval(this.timer);
         this.timer = null;
@@ -258,6 +260,68 @@
       }
       this._referenceOsc = null;
       this._referenceGain = null;
+    }
+
+    /**
+     * Spielt eine Folge von Frequenzen als kurze Töne (z. B. die Pentatonik
+     * zum Anhören). Gibt die geschätzte Dauer in Sekunden zurück.
+     */
+    async playToneSequence(frequencies, options) {
+      if (!Array.isArray(frequencies) || !frequencies.length) return 0;
+      const valid = frequencies.filter((frequency) => Number.isFinite(frequency) && frequency > 0);
+      if (!valid.length) return 0;
+
+      const ctx = await this.ensureContext();
+      const opts = options && typeof options === 'object' ? options : {};
+      const noteSec = Math.max(0.08, Number(opts.noteSec) || 0.3);
+      const gapSec = Math.max(0, Number(opts.gapSec) || 0.05);
+      const type = opts.type || 'triangle';
+      const peak = Math.max(0.01, Math.min(0.3, Number(opts.peak) || 0.12));
+
+      this.stopReferenceTone();
+      this.stopToneSequence();
+      const start = ctx.currentTime + 0.06;
+
+      valid.forEach((frequency, index) => {
+        const noteStart = start + index * (noteSec + gapSec);
+        const oscillator = ctx.createOscillator();
+        const gain = ctx.createGain();
+
+        oscillator.type = type;
+        oscillator.frequency.setValueAtTime(frequency, noteStart);
+        gain.gain.setValueAtTime(0.0001, noteStart);
+        gain.gain.exponentialRampToValueAtTime(peak, noteStart + 0.02);
+        gain.gain.setValueAtTime(peak, noteStart + Math.max(0.04, noteSec * 0.6));
+        gain.gain.exponentialRampToValueAtTime(0.0001, noteStart + noteSec);
+
+        oscillator.connect(gain);
+        gain.connect(ctx.destination);
+        oscillator.start(noteStart);
+        oscillator.stop(noteStart + noteSec + 0.02);
+
+        oscillator.addEventListener('ended', () => {
+          try {
+            oscillator.disconnect();
+            gain.disconnect();
+          } catch (error) { /* bereits getrennt */ }
+          this._sequenceNodes = this._sequenceNodes.filter((node) => node.oscillator !== oscillator);
+        });
+
+        this._sequenceNodes.push({ oscillator, gain });
+      });
+
+      return start + valid.length * (noteSec + gapSec) - ctx.currentTime;
+    }
+
+    stopToneSequence() {
+      this._sequenceNodes.forEach(({ oscillator, gain }) => {
+        try {
+          oscillator.stop();
+          oscillator.disconnect();
+        } catch (error) { /* bereits beendet */ }
+        try { gain.disconnect(); } catch (error) { /* bereits getrennt */ }
+      });
+      this._sequenceNodes = [];
     }
 
     _tick() {

@@ -2,7 +2,7 @@ FROM nginx:alpine
 
 LABEL org.opencontainers.image.title="Gitarren-Akkord-Trainer" \
       org.opencontainers.image.description="PWA zum Lernen, Stimmen, Üben und Nachspielen von E-Gitarren-Akkorden, Pentatoniken und Songs" \
-      org.opencontainers.image.version="1.3.1"
+      org.opencontainers.image.version="1.5.0"
 
 RUN rm -f /etc/nginx/conf.d/default.conf
 

@@ -8,18 +8,19 @@
   'use strict';
 
   const STORAGE_KEY = 'guitarTrainer.prefs.v1';
-  const MODES = ['trainer', 'tuner', 'pentatonic', 'song'];
+  const MODES = ['trainer', 'tuner', 'pentatonic', 'song', 'help'];
   const SCALE_TYPES = ['minor', 'major'];
 
   const DEFAULTS = Object.freeze({
     mode: 'trainer',
     bpm: 50,
     tuningStringIndex: 0,
+    tunerAuto: false,
     scale: Object.freeze({
       rootPc: 9,
       type: 'minor',
-      attacks: 15,
-      repeats: 2
+      repeats: 1,
+      backward: false
     }),
     deviceId: ''
   });
@@ -39,11 +40,12 @@
       mode: MODES.includes(source.mode) ? source.mode : DEFAULTS.mode,
       bpm: clampInteger(source.bpm, 40, 180, DEFAULTS.bpm),
       tuningStringIndex: clampInteger(source.tuningStringIndex, 0, 5, DEFAULTS.tuningStringIndex),
+      tunerAuto: source.tunerAuto === true,
       scale: {
         rootPc: clampInteger(scale.rootPc, 0, 11, DEFAULTS.scale.rootPc),
         type: SCALE_TYPES.includes(scale.type) ? scale.type : DEFAULTS.scale.type,
-        attacks: clampInteger(scale.attacks, 5, 40, DEFAULTS.scale.attacks),
-        repeats: clampInteger(scale.repeats, 1, 4, DEFAULTS.scale.repeats)
+        repeats: clampInteger(scale.repeats, 1, 4, DEFAULTS.scale.repeats),
+        backward: scale.backward === true
       },
       deviceId
     };

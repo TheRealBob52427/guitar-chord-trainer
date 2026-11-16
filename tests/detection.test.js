@@ -108,7 +108,11 @@ const VOICINGS = {
   Cadd9: [48, 52, 55, 62, 67],
   Em7: [40, 47, 52, 55, 62, 64],
   Dsus4: [50, 57, 62, 67],
-  A7sus4: [45, 52, 55, 62, 64]
+  A7sus4: [45, 52, 55, 62, 64],
+  C: [48, 52, 55, 60, 64],
+  Am: [45, 52, 57, 60, 64],
+  E7: [40, 47, 52, 56, 62, 64],
+  F: [41, 48, 53, 57, 60, 65]
 };
 
 test('FFT-Sanity: 440-Hz-Sinus liegt im erwarteten Bin', () => {
@@ -123,7 +127,7 @@ test('FFT-Sanity: 440-Hz-Sinus liegt im erwarteten Bin', () => {
   assert.ok(Math.abs(peak * binHz - 440) < binHz, `Peak bei ${peak * binHz} Hz`);
 });
 
-test('Chromagramm erkennt alle fünf Akkorde korrekt', () => {
+test('Chromagramm erkennt alle Trainer-Akkorde korrekt', () => {
   CHORD_ORDER.forEach((id) => {
     const chroma = chromaFor(VOICINGS[id]);
     let bestId = null;

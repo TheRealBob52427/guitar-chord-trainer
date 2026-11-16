@@ -3,12 +3,13 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const { CHORDS } = require('../app/js/chords.js');
+const { CHORDS, CHORD_ORDER } = require('../app/js/chords.js');
 const { SONGS, getSong, songLabel } = require('../app/js/songs.js');
 const { renderFretboard } = require('../app/js/fretboard.js');
+const { APP_VERSION, REPO_URL, KOFI_URL } = require('../app/js/about.js');
 
-test('Song-Bibliothek enthält Wonderwall und When I Come Around', () => {
-  assert.ok(SONGS.length >= 2);
+test('Song-Bibliothek enthält Wonderwall, Don’t Look Back in Anger und When I Come Around', () => {
+  assert.ok(SONGS.length >= 3);
   const wonderwall = getSong('wonderwall');
   assert.equal(wonderwall.title, 'Wonderwall');
   assert.equal(wonderwall.artist, 'Oasis');
@@ -25,6 +26,58 @@ test('Song-Bibliothek enthält Wonderwall und When I Come Around', () => {
   assert.equal(greenDay.bars.length, 8);
   assert.deepEqual(greenDay.bars, wonderwall.bars);
   assert.deepEqual(greenDay.chordOrder, wonderwall.chordOrder);
+});
+
+test('Don’t Look Back in Anger nutzt den C-Dur-Loop aus Strophe und Refrain', () => {
+  const song = getSong('dont-look-back-in-anger');
+  assert.equal(song.title, "Don't Look Back in Anger");
+  assert.equal(song.artist, 'Oasis');
+  assert.equal(song.bpm, 82);
+  assert.equal(song.timeSignature, '4/4');
+  assert.equal(song.originalCapo, 0);
+  assert.equal(song.practiceCapo, 0);
+  assert.equal(songLabel(song), "Don't Look Back in Anger · Oasis");
+  assert.deepEqual(song.bars, [
+    'C', 'G', 'Am', 'E7',
+    'F', 'G', 'C', 'G'
+  ]);
+  assert.deepEqual(song.chordOrder, ['C', 'G', 'Am', 'E7', 'F']);
+  song.bars.forEach((chordId) => {
+    assert.ok(CHORDS[chordId], `Akkord ${chordId} fehlt`);
+    assert.ok(song.chordOrder.includes(chordId), `${chordId} fehlt in chordOrder`);
+  });
+});
+
+test('Alle Song-Akkorde sind im Trainer verfügbar', () => {
+  SONGS.forEach((song) => {
+    song.chordOrder.forEach((chordId) => {
+      assert.ok(CHORDS[chordId], `${song.id}: Akkord ${chordId} fehlt`);
+      assert.ok(CHORD_ORDER.includes(chordId), `${song.id}: ${chordId} fehlt im Trainer`);
+    });
+  });
+});
+
+test('Neue offene Akkorde sind vollständig definiert', () => {
+  assert.deepEqual(CHORDS.C.strings, [-1, 3, 2, 0, 1, 0]);
+  assert.deepEqual(CHORDS.C.pitchClasses, [0, 4, 7]);
+  assert.deepEqual(CHORDS.Am.strings, [-1, 0, 2, 2, 1, 0]);
+  assert.deepEqual(CHORDS.Am.pitchClasses, [9, 0, 4]);
+  assert.deepEqual(CHORDS.E7.strings, [0, 2, 2, 1, 3, 0]);
+  assert.deepEqual(CHORDS.E7.pitchClasses, [4, 8, 11, 2]);
+  assert.deepEqual(CHORDS.F.strings, [1, 3, 3, 2, 1, 1]);
+  assert.deepEqual(CHORDS.F.pitchClasses, [5, 9, 0]);
+
+  ['C', 'Am', 'E7', 'F'].forEach((id) => {
+    const chord = CHORDS[id];
+    assert.deepEqual(chord.frets, chord.strings);
+    assert.match(renderFretboard(chord), /<svg/);
+  });
+});
+
+test('Versions- und Projekt-Metadaten sind gesetzt', () => {
+  assert.match(APP_VERSION, /^\d+\.\d+\.\d+$/);
+  assert.equal(REPO_URL, 'https://github.com/TheRealBob52427/guitar-chord-trainer');
+  assert.equal(KOFI_URL, 'https://ko-fi.com/therealbob33119');
 });
 
 test('Wonderwall-Strophenloop nutzt acht Takte und vier Akkorde', () => {
@@ -68,9 +121,11 @@ test('Song-Matcher erkennt A7sus4', () => {
 });
 
 test('Der Trainer enthält alle Song-Akkorde', () => {
-  const { CHORD_ORDER } = require('../app/js/chords.js');
-  assert.deepEqual(CHORD_ORDER, ['G', 'Cadd9', 'Em7', 'Dsus4', 'A7sus4']);
-  ['Em7', 'G', 'Dsus4', 'A7sus4'].forEach((id) => {
+  assert.deepEqual(
+    CHORD_ORDER,
+    ['G', 'C', 'Cadd9', 'Am', 'Em7', 'Dsus4', 'A7sus4', 'E7', 'F']
+  );
+  ['Em7', 'G', 'Dsus4', 'A7sus4', 'C', 'Am', 'E7', 'F'].forEach((id) => {
     assert.ok(CHORD_ORDER.includes(id), `Trainer fehlt ${id}`);
   });
 });

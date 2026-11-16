@@ -1,7 +1,7 @@
 # Gitarren-Akkord-Trainer
 
 Progressive Web App für E-Gitarren-Anfänger: zeigt Griffbrett-Diagramme für
-**G, Cadd9, Em7, Dsus4 und A7sus4**, bewertet die gespielten Akkorde in Echtzeit über
+**G, C, Cadd9, Am, Em7, Dsus4, A7sus4, E7 und F**, bewertet die gespielten Akkorde in Echtzeit über
 Mikrofon oder USB-Gitarreninterface (z. B. Rocksmith USB Guitar Adapter), enthält
 ein interaktives Stimmgerät, einen Pentatonik-Trainer und einen Song-Modus mit
 automatischer Akkordprüfung.
@@ -58,17 +58,25 @@ Betrieb bleibt das Image unverändert.
 - **Echtzeit-Erkennung** per Web Audio API mit Chromagramm und
   Cosine-Similarity, inklusive Stille-Erkennung, Glättung und Hysterese.
 - **Stimm-Modus** für E2, A2, D3, G3, B3 und E4: YIN-Pitch-Erkennung,
-  Cent-Zeiger (±50 Cent), In-Tune-Anzeige innerhalb ±5 Cent, Saitenauswahl und
-  Referenzton.
+  Cent-Zeiger (±50 Cent), In-Tune-Anzeige innerhalb ±5 Cent, Saitenauswahl,
+  **Auto-Erkennung der angeschlagenen Saite** und Referenzton.
 - **Pentatonik-Trainer** für alle zwölf Grundtöne in Moll und Dur:
-  12-Bund-Griffbrett mit Grundton-Hervorhebung, wählbare Anschlagszahl,
-  Wiederholungen pro Ton und automatische Kontrolle der gespielten Töne.
+  12-Bund-Griffbrett mit Grundton-Hervorhebung, **fünf vollständige Tonfolgen
+  à fünf Töne**, wählbare Wiederholungen pro Ton, optionale **absteigende
+  Tonfolge (rückwärts)**, **Vorspielen der gewählten Pentatonik** und
+  automatische Kontrolle der gespielten Töne.
+- **Hilfe-Modus**, der die verwendeten Griffbrett-Notationen erklärt:
+  Akkord-Diagramme, Pentatonik-Griffbrett, Stimmgerät und Übungsfolge.
 - **Song-Modus** mit Akkord-Führung, Klick und automatischer Prüfung:
-  **Wonderwall** (Oasis) und **When I Come Around** (Green Day), jeweils als
-  Acht-Takt-Strophen-Loop auf `Em7 – G – Dsus4 – A7sus4`, Tempo 50–120 BPM,
-  ohne Capo.
+  **Wonderwall** (Oasis), **Don’t Look Back in Anger** (Oasis) und
+  **When I Come Around** (Green Day), jeweils als Acht-Takt-Loop,
+  Tempo 50–120 BPM, ohne Capo.
 - **Statistik** pro Akkord (Treffer/Versuche) in `localStorage`, mit
   Gesamtquote, Reset und **CSV-Export** im Settings-Sheet.
+- **Einstellungen** mit Versionsanzeige der PWA, Link zum
+  [GitHub-Projekt](https://github.com/TheRealBob52427/guitar-chord-trainer)
+  und Unterstützungs-Link zu
+  [Ko-fi](https://ko-fi.com/therealbob33119).
 - **Persistente Einstellungen**: Modus, Metronom-BPM, Pentatonik-Auswahl,
   Anschläge/Wiederholungen, Audio-Gerät und Tuner-Zielsaite überleben Reload
   und Container-Neustarts.
@@ -84,17 +92,22 @@ Betrieb bleibt das Image unverändert.
 1. „🎤 Mikrofon aktivieren“ antippen und die Browser-Freigabe erteilen.
 2. Im Tab **Trainer** einen Akkord wählen und spielen. Die Karte zeigt den
    Zielakkord, die Erkennung zeigt Treffer, Fehlgriffe und die Quote.
-3. Im Tab **Stimmen** die gewünschte Saite antippen, die Saite einzeln
-   anschlagen und am Wirbel drehen, bis der Zeiger grün in der Mitte steht.
-   „Referenzton …“ spielt die Sollfrequenz vor.
-4. Im Tab **Pentatonik** Grundton und Tongeschlecht wählen, Anschläge und
-   Wiederholungen pro Ton einstellen und „Übung starten“ antippen. Die App
-   erwartet die Töne in der angezeigten Reihenfolge und quittiert jeden
-   richtigen Anschlag automatisch.
+3. Im Tab **Stimmen** die gewünschte Saite antippen oder **Auto-Erkennung**
+   aktivieren, die Saite einzeln anschlagen und am Wirbel drehen, bis der
+   Zeiger grün in der Mitte steht. „Referenzton …“ spielt die Sollfrequenz vor.
+4. Im Tab **Pentatonik** Grundton und Tongeschlecht wählen, Wiederholungen pro
+   Ton einstellen und mit „Pentatonik anhören“ die Skala vorab anhören.
+   „Übung starten“ beginnt **fünf vollständige Tonfolgen**; mit „Anschließend
+   rückwärts“ folgt danach eine absteigende Tonfolge. Die App erwartet die
+   Töne in der angezeigten Reihenfolge und quittiert jeden richtigen Anschlag
+   automatisch.
 5. Im Tab **Songs** ein Lied wählen, das Tempo einstellen und „Mitspielen
    starten“ antippen. Die App zeigt den aktuellen und nächsten Akkord, spielt
    den Klick und prüft die gespielten Akkorde.
-6. Im Settings-Sheet (Regler-Symbol) Audio-Eingang wählen, die Statistik
+6. Im Tab **Hilfe** erklärt die App alle verwendeten Griffbrett-Notationen:
+   offene und gedämpfte Saiten, Fingernummern, Bundnummern, Grundton-Markierung
+   und Zielton-Hervorhebung.
+7. Im Settings-Sheet (Regler-Symbol) Audio-Eingang wählen, die Statistik
    einsehen, als CSV exportieren oder zurücksetzen.
 
 ## Projektstruktur
@@ -143,7 +156,7 @@ Betrieb bleibt das Image unverändert.
    `MIDI = 69 + 12·log2(f/440)` landet jeder Bin in einer von 12
    Pitch-Classes; der Vektor wird auf Länge 1 normalisiert. 70 Hz schneidet
    Netzbrummen und Raumpfeifen ab, 600 Hz deckt die Grundtöne und die
-   wichtigsten Obertöne der fünf Akkorde ab.
+   wichtigsten Obertöne der Trainer-Akkorde ab.
 5. **Glättung**: Die letzten **8 Chromagramme** werden gemittelt. Bei einem
    Analyse-Tick alle 50 ms entspricht das **~400 ms** – lang genug gegen
    Zittern, kurz genug für direktes Feedback.
@@ -191,6 +204,11 @@ aber ab und analysiert den Zeitbereich:
    „Erkannt: … · Ziel …“ statt einer irreführenden Cent-Zahl.
 6. **Referenzton**: Ein kurzer Triangle-Oszillator (1,6 s) spielt die
    Sollfrequenz der gewählten Saite über denselben `AudioContext`.
+7. **Auto-Erkennung**: Ist der Schalter aktiv, wird die angeschlagene Saite
+   über `nearestStringIndex()` aus der gemessenen Frequenz bestimmt. Erst wenn
+   zwei Messungen hintereinander dieselbe Saite ergeben (~200 ms), wechselt
+   das Ziel; so springt die Anzeige nicht zwischen benachbarten Saiten. Eine
+   manuelle Saitenwahl schaltet die Auto-Erkennung wieder aus.
 
 ## Persistente Einstellungen
 
@@ -202,17 +220,19 @@ Einstellungen im Browser:
   "mode": "pentatonic",
   "bpm": 123,
   "tuningStringIndex": 1,
-  "scale": { "rootPc": 4, "type": "major", "attacks": 7, "repeats": 3 },
+  "tunerAuto": true,
+  "scale": { "rootPc": 4, "type": "major", "repeats": 2, "backward": true },
   "deviceId": "..."
 }
 ```
 
-- **Modus** (`trainer`, `tuner`, `pentatonic`, `song`)
+- **Modus** (`trainer`, `tuner`, `pentatonic`, `song`, `help`)
 - **BPM** des Metronoms (40–180)
-- **Pentatonik**: Grundton, Moll/Dur, Anschläge und Wiederholungen pro Ton
+- **Pentatonik**: Grundton, Moll/Dur, Wiederholungen pro Ton (1–4) und
+  Rückwärts-Option
+- **Stimmgerät**: Zielsaite und Auto-Erkennung
 - **Audio-Gerät** (Device-ID; bei nicht mehr vorhandenem Gerät wird auf den
   Standardeingang zurückgefallen)
-- **Tuner-Zielsaite** (E2 bis E4)
 
 Ungültige oder manipulierte Werte werden beim Laden begrenzt bzw. durch
 Defaults ersetzt. Die Daten bleiben im Browser und sind an die Origin gebunden
@@ -251,10 +271,20 @@ Die Statistik liegt unter `guitarTrainer.stats.v2` in `localStorage`:
 - **Skalen**: Moll-Pentatonik `[0, 3, 5, 7, 10]` und Dur-Pentatonik
   `[0, 2, 4, 7, 9]`, transponierbar auf alle zwölf Grundtöne. Das Griffbrett
   zeigt alle Skalentöne über zwölf Bünde; Grundtöne sind rot markiert.
-- **Übungsfolge**: Die fünf Skalenstufen werden aufsteigend gespielt. Jeder Ton
-  wird `Wiederholungen pro Ton`-mal erwartet, bis die eingestellte
-  Gesamtzahl an Anschlägen erreicht ist. Bei 6 Anschlägen und 2× pro Ton ist
-  die Folge also `A A C C D D`.
+- **Tonfolgen**: Eine Übung besteht immer aus **fünf vollständigen
+  Tonfolgen**. Jede Tonfolge spielt alle fünf Skalenstufen von der tiefsten
+  zur höchsten (`1–2–3–4–5`). Jeder Ton wird `Wiederholungen pro Ton`-mal
+  erwartet: bei 1× also `A C D E G`, bei 2× `A A C C D D E E G G` pro
+  Tonfolge. Die Anzeige nennt die aktuelle Tonfolge (`Tonfolge 2 / 5`) und
+  zeigt die Chips der laufenden und der nächsten Tonfolge.
+- **Rückwärts**: Mit „Anschließend rückwärts“ folgt nach den fünf
+  aufsteigenden Tonfolgen eine sechste, absteigende Tonfolge
+  (`5–4–3–2–1`, z. B. `G E D C A`). Die Fortschrittsanzeige zählt dann
+  `x / 6` Tonfolgen bzw. entsprechend viele Anschläge.
+- **Vorspielen**: „Pentatonik anhören“ spielt die gewählte Skala einmal
+  aufwärts und wieder abwärts (Triangle-Oszillator, ~280 ms pro Ton) und
+  markiert dabei die passenden Punkte auf dem Griffbrett. So ist die Skala
+  vor der Übung hörbar.
 - **Automatische Prüfung**: Der Stimm-Modus läuft im Übungsbetrieb mit
   20 Updates/s. Ein Treffer wird nur gewertet, wenn die erkannte Pitch-Class
   zweimal hintereinander (ca. 100 ms) zum Zielton passt. Ein Ziel wird
@@ -273,25 +303,46 @@ Die Statistik liegt unter `guitarTrainer.stats.v2` in `localStorage`:
 Der Song-Modus führt durch einen Akkord-Loop und prüft die gespielten Akkorde
 mit derselben Chroma-Erkennung wie der Trainer.
 
-- **Bibliothek**: `app/js/songs.js`, aktuell **Wonderwall (Oasis)** und
-  **When I Come Around (Green Day)**. Beide nutzen den Acht-Takt-Strophen-Loop
+- **Bibliothek**: `app/js/songs.js`, aktuell **Wonderwall (Oasis)**,
+  **Don’t Look Back in Anger (Oasis)** und **When I Come Around (Green Day)**.
+  Wonderwall und When I Come Around nutzen den Acht-Takt-Strophen-Loop
   `Em7 – G – Dsus4 – A7sus4` (zweimal), ein Akkord pro 4/4-Takt. „When I Come
-  Around“ ist auf diese Folge verschoben.
-- **Tempo**: 50–120 BPM, Standard je Song 87 BPM (Wonderwall) bzw. 98 BPM
-  (When I Come Around). Der Regler zeigt zusätzlich die Geschwindigkeit
-  relativ zum Original (100 % = Song-BPM).
-- **Akkorde**: Alle Song-Akkorde sind auch im Trainer verfügbar; `A7sus4` ist
-  als fünfter Trainer-Akkord ergänzt.
+  Around“ ist auf diese Folge verschoben. „Don’t Look Back in Anger“ nutzt den
+  Acht-Takt-Loop `C – G – Am – E7 – F – G – C – G` aus Strophe und Refrain.
+- **Tempo**: 50–120 BPM, Standard je Song 87 BPM (Wonderwall), 82 BPM
+  (Don’t Look Back in Anger) bzw. 98 BPM (When I Come Around). Der Regler zeigt
+  zusätzlich die Geschwindigkeit relativ zum Original (100 % = Song-BPM).
+- **Akkorde**: Alle Song-Akkorde sind auch im Trainer verfügbar; `C`, `Am`,
+  `E7` und `F` sind als Trainer-Akkorde ergänzt. Der `E7`-Griff
+  (`022130`) greift die Septime `D` mit, damit die Erkennung alle vier
+  Akkordtöne im Chromagramm findet.
 - **Ablauf**: aktueller und nächster Akkord, Griffbrett-Diagramm, Takt-Leiste,
   Klick und Beat-Dots. Nach acht Takten beginnt der Loop von vorn.
 - **Prüfung**: Bei jedem Taktwechsel wird der Zielakkord gesetzt und der
   Detektor zurückgesetzt. Ein Treffer zählt nur, wenn der erkannte Akkord dem
   Ziel entspricht; Treffer/Versuche werden separat von der Akkordstatistik
   geführt.
-- **Capo**: Beide Übungsversionen nutzen offene Akkordformen **ohne Capo**,
+- **Capo**: Alle Übungsversionen nutzen offene Akkordformen **ohne Capo**,
   damit die Erkennung zu den angezeigten Griffen passt.
 - **Inhalte**: Es werden keine Originalaufnahmen, Lyrics oder Melodien
   eingebunden – nur Akkordfolge, Timing und ein synthetischer Klick.
+
+## Hilfe-Modus
+
+Der Tab **Hilfe** erklärt die in der App verwendeten Griffbrett-Notationen und
+zeigt dieselben Renderer wie die Übungsansichten als Beispiel:
+
+- **Akkord-Diagramm**: Saiten von links (tiefe E) nach rechts (hohe E), dicke
+  Linie oben = Sattel, Zahlen links = Bundnummern, gefüllte Punkte mit
+  Fingernummern 1–4, ○ = offene Saite, × = gedämpfte Saite.
+- **Pentatonik-Griffbrett**: zwölf Bünde, Notennamen in den Punkten, rote
+  Punkte = Grundton, Punkte über dem Sattel = leere Saiten, weißer Ring =
+  aktueller Zielton, Inlays bei 3/5/7/9/12.
+- **Stimmgerät & Übungsfolge**: Cent-Zeiger (±5 Cent grün), Auto-Erkennung,
+  Bedeutung der Sequenz-Chips und der Begriff „Tonfolge“.
+
+Der Hilfe-Modus benötigt kein Mikrofon und lässt sich wie die anderen Tabs
+über die Modus-Leiste öffnen; die Auswahl wird mitgespeichert.
 
 ## Tests
 
@@ -299,11 +350,11 @@ Die DSP-Kette, YIN-Erkennung, Pentatonik-Logik, Statistik und das Metronom sind
 ohne Browser testbar. Die Tests synthetisieren Gitarrenakkorde und Saitentöne
 mit Obertönen, führen eine echte FFT aus und prüfen unter anderem:
 
-- Erkennung aller fünf Akkorde und der sechs offenen Saiten,
+- Erkennung aller Trainer-Akkorde und der sechs offenen Saiten,
 - Cent-Genauigkeit, Oktavfehler-Stabilität und Stille,
 - Hysterese und Akkorddaten,
 - Pentatonik-Intervalle, Übungsfolgen, Griffbrettpositionen und SVG,
-- Song-Bibliothek, beide Strophen-Loops und A7sus4-Griff,
+- Song-Bibliothek, alle Song-Loops und die neuen Griffe,
 - Einstellungs-Persistenz inkl. Validierung und Grenzwerten,
 - Statistik-Migration, Persistenz, CSV-Inhalt und Reset,
 - Metronom-Standard 50 BPM und BPM-Grenzen.
@@ -325,7 +376,7 @@ auch ohne TLS. Der Service Worker wird ebenfalls auf localhost registriert.
 
 - **Cache aktualisieren**: Nach Änderungen an Dateien in `app/` die
   `CACHE_VERSION` in `app/sw.js` erhöhen **und** die Versions-Query in
-  `app/index.html` sowie in der Precache-Liste anpassen (z. B. `?v=1.3.1`).
+  `app/index.html` sowie in der Precache-Liste anpassen (z. B. `?v=1.5.0`).
   So können installierte Clients nicht neues HTML mit altem JavaScript
   mischen.
 - **Icons neu generieren**: `python3 tools/generate_icons.py` (benötigt Pillow).
@@ -359,9 +410,9 @@ auch ohne TLS. Der Service Worker wird ebenfalls auf localhost registriert.
 - **USB-Adapter fehlt**: Adapter anschließen, Settings öffnen, „Geräte neu
   laden“. Bei Linux ggf. `arecord -l` prüfen.
 - **Tabs reagieren nicht / alte Version**: Im Settings-Sheet muss **Version
-  1.3.1** stehen. Nach einem Image-Update `docker compose build --no-cache &&
+  1.5.0** stehen. Nach einem Image-Update `docker compose build --no-cache &&
   docker compose up -d` ausführen, die PWA schließen und neu öffnen. HTML und
-  JavaScript sind mit `?v=1.3.1` versioniert, damit kein altes JS aus dem
+  JavaScript sind mit `?v=1.5.0` versioniert, damit kein altes JS aus dem
   Browser- oder Service-Worker-Cache geladen wird.
 - **Pentatonik-Übung zählt nicht weiter**: Töne einzeln und mit kurzer Pause
   spielen; bei wiederholtem gleichem Ton kurz abdämpfen. Die App prüft die

@@ -320,6 +320,27 @@ button {
   width: 100%;
 }
 
+.btn-kofi {
+  background: rgba(255, 94, 91, 0.1);
+  border-color: rgba(255, 94, 91, 0.32);
+  color: #ff9a94;
+}
+
+.btn-kofi:hover {
+  background: rgba(255, 94, 91, 0.16);
+}
+
+.about-block {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.about-block .version {
+  margin: 0 0 4px;
+  font-variant-numeric: tabular-nums;
+}
+
 /* ---------- Start screen ---------- */
 
 .start-card {
@@ -844,7 +865,7 @@ code {
 
 .mode-switch {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 4px;
   margin: 0 0 14px;
   padding: 4px;
@@ -855,13 +876,14 @@ code {
 
 .mode-btn {
   min-height: 44px;
-  padding: 8px 12px;
+  padding: 8px 4px;
   border-radius: 10px;
   background: transparent;
   color: var(--muted);
-  font-size: 13.5px;
+  font-size: clamp(10.5px, 2.7vw, 13.5px);
   font-weight: 650;
   letter-spacing: 0.01em;
+  white-space: nowrap;
   transition: background 0.18s ease, color 0.18s ease, box-shadow 0.18s ease;
 }
 
@@ -876,6 +898,82 @@ code {
   box-shadow:
     inset 0 -2px 0 var(--primary),
     0 2px 12px rgba(0, 0, 0, 0.32);
+}
+
+/* ---------- Schalter ---------- */
+
+.switch-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin: 12px 0;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #10101f;
+  cursor: pointer;
+}
+
+.switch-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.switch-copy strong {
+  font-size: 12.5px;
+  font-weight: 650;
+  color: var(--text);
+}
+
+.switch-copy small {
+  color: var(--muted-2);
+  font-size: 10.5px;
+  line-height: 1.35;
+}
+
+.switch-input {
+  -webkit-appearance: none;
+  appearance: none;
+  flex: 0 0 auto;
+  width: 44px;
+  height: 26px;
+  margin: 0;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #2a2a44;
+  position: relative;
+  cursor: pointer;
+  transition: background 0.18s ease, border-color 0.18s ease;
+}
+
+.switch-input::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #cfcfe2;
+  transition: transform 0.18s ease, background 0.18s ease;
+}
+
+.switch-input:checked {
+  background: var(--primary);
+  border-color: rgba(233, 69, 96, 0.65);
+}
+
+.switch-input:checked::after {
+  transform: translateX(18px);
+  background: #fff;
+}
+
+.switch-input:focus-visible {
+  outline: 2px solid var(--primary-bright);
+  outline-offset: 3px;
 }
 
 /* ---------- Stimm-Modus ---------- */
@@ -1361,7 +1459,7 @@ code {
 
 .practice-controls {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1fr);
   gap: 2px 14px;
   margin: 2px 0 10px;
 }
@@ -1387,6 +1485,84 @@ code {
 
 .practice-hint {
   margin-top: 10px;
+}
+
+#startHelpBtn {
+  margin-top: 10px;
+}
+
+#helpModalBody .card {
+  padding-left: 0;
+  padding-right: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.scale-fretboard .is-playing circle,
+.scale-fretboard .is-playing.scale-dot circle {
+  stroke: #fff;
+  stroke-width: 2;
+  filter: drop-shadow(0 0 7px rgba(255, 255, 255, 0.65));
+}
+
+/* ---------- Hilfe ---------- */
+
+.help-intro {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 12.5px;
+  line-height: 1.6;
+}
+
+.help-title {
+  margin: 0 0 4px;
+  color: var(--text);
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.help-demo {
+  display: flex;
+  justify-content: center;
+  padding: 8px 0 4px;
+}
+
+.help-demo .fretboard {
+  width: 100%;
+  max-width: 240px;
+  height: auto;
+}
+
+.help-list {
+  margin: 8px 0 0;
+  padding-left: 18px;
+  color: var(--muted);
+  font-size: 12.5px;
+  line-height: 1.6;
+}
+
+.help-list li + li {
+  margin-top: 7px;
+}
+
+.help-list strong {
+  color: var(--text);
+}
+
+.help-key {
+  display: inline-block;
+  min-width: 18px;
+  padding: 0 5px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: #10101f;
+  color: var(--text);
+  font-size: 10.5px;
+  font-weight: 700;
+  text-align: center;
+  line-height: 1.5;
 }
 
 /* ---------- Song-Modus ---------- */

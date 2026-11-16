@@ -21,14 +21,15 @@ test('Default-Einstellungen sind vollständig', () => {
     mode: 'trainer',
     bpm: 50,
     tuningStringIndex: 0,
-    scale: { rootPc: 9, type: 'minor', attacks: 15, repeats: 2 },
+    tunerAuto: false,
+    scale: { rootPc: 9, type: 'minor', repeats: 1, backward: false },
     deviceId: ''
   });
 });
 
-test('Song-Modus ist ein gültiger persistierter Modus', () => {
-  const prefs = Prefs.normalizePrefs({ mode: 'song' });
-  assert.equal(prefs.mode, 'song');
+test('Song- und Hilfe-Modus sind gültige persistierte Modi', () => {
+  assert.equal(Prefs.normalizePrefs({ mode: 'song' }).mode, 'song');
+  assert.equal(Prefs.normalizePrefs({ mode: 'help' }).mode, 'help');
 });
 
 test('Einstellungen überleben Speichern und Laden', () => {
@@ -37,7 +38,8 @@ test('Einstellungen überleben Speichern und Laden', () => {
     mode: 'pentatonic',
     bpm: 123,
     tuningStringIndex: 4,
-    scale: { rootPc: 4, type: 'major', attacks: 7, repeats: 3 },
+    tunerAuto: true,
+    scale: { rootPc: 4, type: 'major', repeats: 3, backward: true },
     deviceId: 'device-abc'
   };
   assert.equal(Prefs.savePrefs(storage, saved), true);
@@ -49,22 +51,32 @@ test('Ungültige Werte werden begrenzt oder ersetzt', () => {
     mode: 'unbekannt',
     bpm: 999,
     tuningStringIndex: 99,
-    scale: { rootPc: -5, type: 'phrygisch', attacks: 100, repeats: 0 },
+    tunerAuto: 'ja',
+    scale: { rootPc: -5, type: 'phrygisch', repeats: 0, backward: 'ja' },
     deviceId: 42
   });
   assert.equal(normalized.mode, 'trainer');
   assert.equal(normalized.bpm, 180);
   assert.equal(normalized.tuningStringIndex, 5);
+  assert.equal(normalized.tunerAuto, false);
   assert.equal(normalized.scale.rootPc, 0);
   assert.equal(normalized.scale.type, 'minor');
-  assert.equal(normalized.scale.attacks, 40);
   assert.equal(normalized.scale.repeats, 1);
+  assert.equal(normalized.scale.backward, false);
   assert.equal(normalized.deviceId, '');
 
-  const low = Prefs.normalizePrefs({ bpm: 1, scale: { attacks: 1, repeats: 9 } });
+  const low = Prefs.normalizePrefs({ bpm: 1, scale: { repeats: 9 } });
   assert.equal(low.bpm, 40);
-  assert.equal(low.scale.attacks, 5);
   assert.equal(low.scale.repeats, 4);
+});
+
+test('Alte attacks-Einstellung wird ignoriert, neue Werte bleiben gültig', () => {
+  const legacy = Prefs.normalizePrefs({
+    scale: { rootPc: 9, type: 'minor', attacks: 15, repeats: 2 }
+  });
+  assert.equal(legacy.scale.attacks, undefined);
+  assert.equal(legacy.scale.repeats, 2);
+  assert.equal(legacy.scale.backward, false);
 });
 
 test('Korrupte Daten und fehlender Storage fallen auf Defaults zurück', () => {

@@ -16,6 +16,11 @@
   const OPEN_STRING_MIDI = [40, 45, 50, 55, 59, 64];
   const STRING_NAMES = ['E', 'A', 'D', 'G', 'B', 'E'];
 
+  /** Feste Anzahl vollständiger Tonfolgen pro Übung. */
+  const PENTATONIC_RUNS = 5;
+  /** MIDI-Note des Grundtons fürs Vorspielen (A2 = 45, chromatisch transponiert). */
+  const PREVIEW_ROOT_MIDI = 45;
+
   const STRING_X = [48, 78, 108, 138, 168, 198];
   const NUT_Y = 62;
   const FRET_HEIGHT = 24;
@@ -40,27 +45,70 @@
   }
 
   /**
-   * Erzeugt die erwartete Anschlagsfolge. Bei mehr Anschlägen als
-   * Skalentönen × Wiederholungen wird die Skala in die nächste Oktave
-   * fortgesetzt; die Pitch-Class bleibt dieselbe.
+   * Erzeugt die erwartete Anschlagsfolge aus vollständigen Tonfolgen.
+   *
+   * Eine Tonfolge enthält immer alle fünf Skalenstufen (aufsteigend). Jede
+   * Stufe wird `repeats`-mal erwartet. Mit `backward` folgt nach den
+   * aufsteigenden Tonfolgen genau eine absteigende Tonfolge (5–4–3–2–1).
+   *
+   * @param {number} rootPc Grundton als Pitch-Class (0–11)
+   * @param {string} type 'minor' oder 'major'
+   * @param {number} runs Anzahl aufsteigender Tonfolgen
+   * @param {number} repeats Wiederholungen pro Ton
+   * @param {boolean} [backward] absteigende Tonfolge anhängen
    */
-  function buildSequence(rootPc, type, attacks, repeats) {
+  function buildSequence(rootPc, type, runs, repeats, backward) {
     const pcs = scalePitchClasses(rootPc, type);
-    const total = Math.max(1, Math.min(80, Math.floor(Number(attacks) || 1)));
-    const repeatCount = Math.max(1, Math.min(8, Math.floor(Number(repeats) || 1)));
+    const parsedRuns = Math.floor(Number(runs));
+    const runCount = Number.isFinite(parsedRuns)
+      ? Math.max(1, Math.min(12, parsedRuns))
+      : PENTATONIC_RUNS;
+    const parsedRepeats = Math.floor(Number(repeats));
+    const repeatCount = Number.isFinite(parsedRepeats)
+      ? Math.max(1, Math.min(8, parsedRepeats))
+      : 1;
     const sequence = [];
 
-    for (let index = 0; index < total; index += 1) {
-      const step = Math.floor(index / repeatCount);
-      const degree = step % pcs.length;
-      sequence.push({
-        pc: pcs[degree],
-        name: NOTE_NAMES[pcs[degree]],
-        degree
-      });
+    const pushDegree = (degree, run, direction) => {
+      for (let repeat = 0; repeat < repeatCount; repeat += 1) {
+        sequence.push({
+          pc: pcs[degree],
+          name: NOTE_NAMES[pcs[degree]],
+          degree,
+          run,
+          direction
+        });
+      }
+    };
+
+    for (let run = 1; run <= runCount; run += 1) {
+      for (let degree = 0; degree < pcs.length; degree += 1) {
+        pushDegree(degree, run, 'up');
+      }
     }
+
+    if (backward) {
+      const run = runCount + 1;
+      for (let degree = pcs.length - 1; degree >= 0; degree -= 1) {
+        pushDegree(degree, run, 'down');
+      }
+    }
+
     return sequence;
   }
+
+  /**
+   * Frequenzen der fünf Skalentöne für das Vorspielen, beginnend beim
+   * Grundton in der Oktave um A2 (MIDI 45).
+   */
+  function scaleFrequencies(rootPc, type) {
+    const rootMidi = PREVIEW_ROOT_MIDI + normalizePc(rootPc - 9);
+    const intervals = INTERVALS[type] || INTERVALS.minor;
+    return intervals.map((interval) => (
+      440 * Math.pow(2, (rootMidi + interval - 69) / 12)
+    ));
+  }
+
 
   function buildPositions(rootPc, type, maxFret) {
     const pcs = new Set(scalePitchClasses(rootPc, type));
@@ -158,9 +206,11 @@
     INTERVALS,
     TYPE_NAMES,
     OPEN_STRING_MIDI,
+    PENTATONIC_RUNS,
     scalePitchClasses,
     scaleLabel,
     buildSequence,
+    scaleFrequencies,
     buildPositions,
     renderPentatonicFretboard
   };

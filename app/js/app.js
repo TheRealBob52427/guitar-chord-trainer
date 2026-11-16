@@ -21,13 +21,19 @@
     formatCents,
     formatHz,
     NOTE_NAMES,
+    PENTATONIC_RUNS,
     scalePitchClasses,
     scaleLabel,
+    scaleFrequencies,
     buildSequence: buildPentatonicSequence,
     renderPentatonicFretboard,
+    nearestStringIndex,
     SONGS,
     getSong,
-    songLabel
+    songLabel,
+    APP_VERSION = '',
+    REPO_URL = '',
+    KOFI_URL = ''
   } = window.ChordTrainer;
   const MATCH_SCORE = DEFAULTS.matchThreshold;
   const MIN_BPM = 40;
@@ -37,16 +43,21 @@
   const els = {
     startScreen: document.getElementById('startScreen'),
     startBtn: document.getElementById('startBtn'),
+    startHelpBtn: document.getElementById('startHelpBtn'),
     secureHint: document.getElementById('secureHint'),
     mainApp: document.getElementById('mainApp'),
     modeTrainerBtn: document.getElementById('modeTrainerBtn'),
     modeTunerBtn: document.getElementById('modeTunerBtn'),
     modePentatonicBtn: document.getElementById('modePentatonicBtn'),
     modeSongBtn: document.getElementById('modeSongBtn'),
+    modeHelpBtn: document.getElementById('modeHelpBtn'),
     trainerView: document.getElementById('trainerView'),
     tunerView: document.getElementById('tunerView'),
     pentatonicView: document.getElementById('pentatonicView'),
     songView: document.getElementById('songView'),
+    helpView: document.getElementById('helpView'),
+    helpChordDemo: document.getElementById('helpChordDemo'),
+    helpScaleDemo: document.getElementById('helpScaleDemo'),
     tunerCard: document.getElementById('tunerCard'),
     tunerNote: document.getElementById('tunerNote'),
     tunerCents: document.getElementById('tunerCents'),
@@ -56,6 +67,7 @@
     tunerStatusDot: document.getElementById('tunerStatusDot'),
     tunerTarget: document.getElementById('tunerTarget'),
     tunerStrings: document.getElementById('tunerStrings'),
+    tunerAuto: document.getElementById('tunerAuto'),
     refToneBtn: document.getElementById('refToneBtn'),
     tunerLive: document.getElementById('tunerLive'),
     scaleHeading: document.getElementById('scaleHeading'),
@@ -75,8 +87,8 @@
     practiceMeter: document.getElementById('practiceMeter'),
     practiceProgressFill: document.getElementById('practiceProgressFill'),
     practiceSequence: document.getElementById('practiceSequence'),
-    scaleAttacks: document.getElementById('scaleAttacks'),
-    attacksValue: document.getElementById('attacksValue'),
+    scaleBackward: document.getElementById('scaleBackward'),
+    scalePreviewBtn: document.getElementById('scalePreviewBtn'),
     scaleRepeats: document.getElementById('scaleRepeats'),
     repeatsValue: document.getElementById('repeatsValue'),
     practiceStart: document.getElementById('practiceStart'),
@@ -128,12 +140,18 @@
     settingsBtn: document.getElementById('settingsBtn'),
     settingsModal: document.getElementById('settingsModal'),
     closeSettings: document.getElementById('closeSettings'),
+    helpModal: document.getElementById('helpModal'),
+    helpModalBody: document.getElementById('helpModalBody'),
+    closeHelp: document.getElementById('closeHelp'),
     deviceSelect: document.getElementById('deviceSelect'),
     refreshDevices: document.getElementById('refreshDevices'),
     resetStats: document.getElementById('resetStats'),
     exportStats: document.getElementById('exportStats'),
     statsText: document.getElementById('statsText'),
     statsBreakdown: document.getElementById('statsBreakdown'),
+    appVersion: document.getElementById('appVersion'),
+    repoLink: document.getElementById('repoLink'),
+    kofiLink: document.getElementById('kofiLink'),
     toast: document.getElementById('toast')
   };
 
@@ -141,13 +159,16 @@
     chordId: 'G',
     mode: storedPrefs.mode,
     tuningStringIndex: storedPrefs.tuningStringIndex,
+    tunerAuto: storedPrefs.tunerAuto,
+    tunerAutoCandidate: null,
+    tunerAutoFrames: 0,
     tunerSmoothCents: null,
     tunerWasInTune: false,
     scale: {
       rootPc: storedPrefs.scale.rootPc,
       type: storedPrefs.scale.type,
-      attacks: storedPrefs.scale.attacks,
       repeats: storedPrefs.scale.repeats,
+      backward: storedPrefs.scale.backward,
       sequence: [],
       active: false,
       index: 0,
@@ -162,6 +183,7 @@
       graceUntil: 0,
       feedbackUntil: 0
     },
+    previewTimers: [],
     song: {
       songId: SONGS[0].id,
       tempo: SONGS[0].bpm,
@@ -212,11 +234,12 @@
       mode: state.mode,
       bpm: metronome.bpm,
       tuningStringIndex: state.tuningStringIndex,
+      tunerAuto: state.tunerAuto,
       scale: {
         rootPc: state.scale.rootPc,
         type: state.scale.type,
-        attacks: state.scale.attacks,
-        repeats: state.scale.repeats
+        repeats: state.scale.repeats,
+        backward: state.scale.backward
       },
       deviceId: state.selectedDeviceId
     });
@@ -311,6 +334,7 @@
       handleSongUpdate(update);
       return;
     }
+    if (state.mode === 'help') return;
     const target = CHORDS[state.chordId];
     const score = update.silent ? 0 : update.bestScore;
     const percent = Math.max(0, Math.min(100, Math.round(score * 100)));
@@ -340,6 +364,7 @@
       handleSongAttempt(attempt);
       return;
     }
+    if (state.mode === 'help') return;
     const target = CHORDS[state.chordId];
     const heard = CHORDS[attempt.id];
     const success = attempt.id === target.id;
@@ -419,26 +444,33 @@
   /* ---------- Modus & Stimmgerät ---------- */
 
   function applyMode(mode) {
-    const next = (mode === 'tuner' || mode === 'pentatonic' || mode === 'song') ? mode : 'trainer';
+    const next = (mode === 'tuner' || mode === 'pentatonic' || mode === 'song' || mode === 'help')
+      ? mode
+      : 'trainer';
     const tunerActive = next === 'tuner';
     const pentatonicActive = next === 'pentatonic';
     const songActive = next === 'song';
+    const helpActive = next === 'help';
     state.mode = next;
     engine.stopReferenceTone();
+    engine.stopToneSequence();
 
     els.modeTrainerBtn.classList.toggle('active', next === 'trainer');
     els.modeTunerBtn.classList.toggle('active', tunerActive);
     els.modePentatonicBtn.classList.toggle('active', pentatonicActive);
     els.modeSongBtn.classList.toggle('active', songActive);
+    els.modeHelpBtn.classList.toggle('active', helpActive);
     els.modeTrainerBtn.setAttribute('aria-pressed', String(next === 'trainer'));
     els.modeTunerBtn.setAttribute('aria-pressed', String(tunerActive));
     els.modePentatonicBtn.setAttribute('aria-pressed', String(pentatonicActive));
     els.modeSongBtn.setAttribute('aria-pressed', String(songActive));
+    els.modeHelpBtn.setAttribute('aria-pressed', String(helpActive));
 
     els.trainerView.hidden = next !== 'trainer';
     els.tunerView.hidden = !tunerActive;
     els.pentatonicView.hidden = !pentatonicActive;
     els.songView.hidden = !songActive;
+    els.helpView.hidden = !helpActive;
 
     if (!songActive) stopSong();
 
@@ -448,6 +480,8 @@
       engine.setMode('tuner');
       state.tunerSmoothCents = null;
       state.tunerWasInTune = false;
+      state.tunerAutoCandidate = null;
+      state.tunerAutoFrames = 0;
       updateTunerTarget();
       resetTunerDisplay();
     } else if (pentatonicActive) {
@@ -462,6 +496,10 @@
       engine.setChordOrder(CHORD_ORDER);
       engine.setMode('chords');
       initSongView();
+    } else if (helpActive) {
+      stopPractice();
+      metronome.stop();
+      engine.setMode('chords');
     } else {
       stopPractice();
       stopSong();
@@ -497,8 +535,10 @@
 
   function updateTunerTarget() {
     const target = TUNING_STRINGS[state.tuningStringIndex];
-    els.tunerTarget.textContent = `${target.id} · ${formatHz(target.frequency)}`;
+    const prefix = state.tunerAuto ? 'Auto · ' : '';
+    els.tunerTarget.textContent = `${prefix}${target.id} · ${formatHz(target.frequency)}`;
     els.refToneBtn.textContent = `Referenzton ${target.id} abspielen`;
+    els.tunerAuto.checked = state.tunerAuto;
     els.tunerStrings.querySelectorAll('.string-btn').forEach((button) => {
       const active = Number(button.dataset.stringIndex) === state.tuningStringIndex;
       button.classList.toggle('active', active);
@@ -508,13 +548,28 @@
 
   function selectTuningString(index) {
     if (!TUNING_STRINGS[index]) return;
+    if (state.tunerAuto) setTunerAuto(false, false);
     state.tuningStringIndex = index;
     state.tunerSmoothCents = null;
     state.tunerWasInTune = false;
+    state.tunerAutoCandidate = null;
+    state.tunerAutoFrames = 0;
     engine.stopReferenceTone();
     updateTunerTarget();
     resetTunerDisplay();
     persistPrefs();
+  }
+
+  function setTunerAuto(enabled, persist) {
+    state.tunerAuto = Boolean(enabled);
+    state.tunerAutoCandidate = null;
+    state.tunerAutoFrames = 0;
+    state.tunerSmoothCents = null;
+    state.tunerWasInTune = false;
+    els.tunerAuto.checked = state.tunerAuto;
+    updateTunerTarget();
+    resetTunerDisplay();
+    if (persist !== false) persistPrefs();
   }
 
   function setTunerStatus(text, kind) {
@@ -532,14 +587,21 @@
     els.tunerCard.classList.remove('is-good');
     els.tunerCard.classList.remove('is-warn');
     els.tunerLive.textContent = '';
-    setTunerStatus(`Spiele die ${target.description} …`, '');
+    setTunerStatus(
+      state.tunerAuto
+        ? 'Auto-Erkennung aktiv – Spiele eine Saite an …'
+        : `Spiele die ${target.description} …`,
+      ''
+    );
   }
 
   function handleTunerUpdate(update) {
     if (state.mode !== 'tuner') return;
-    const target = TUNING_STRINGS[state.tuningStringIndex];
 
     if (!update.pitch) {
+      state.tunerAutoCandidate = null;
+      state.tunerAutoFrames = 0;
+      const target = TUNING_STRINGS[state.tuningStringIndex];
       state.tunerSmoothCents = null;
       state.tunerWasInTune = false;
       els.tunerNote.textContent = '–';
@@ -549,14 +611,46 @@
       els.tunerNeedle.style.left = '50%';
       els.tunerCard.classList.remove('is-good');
       els.tunerCard.classList.remove('is-warn');
+      const idleText = state.tunerAuto
+        ? 'Auto-Erkennung aktiv – Spiele eine Saite an …'
+        : `Spiele die ${target.description} …`;
       setTunerStatus(
-        update.silent ? `Spiele die ${target.description} …` : 'Ton unklar – näher ans Mikrofon',
+        update.silent ? idleText : 'Ton unklar – näher ans Mikrofon',
         update.silent ? '' : 'warn'
       );
       els.tunerLive.textContent = '';
       return;
     }
 
+    // Auto-Modus: Die angeschlagene Saite wird aus der Tonhöhe bestimmt.
+    // Erst nach zwei gleichen Messungen umschalten, damit der Zeiger nicht
+    // zwischen benachbarten Saiten hin und her springt.
+    if (state.tunerAuto) {
+      const detectedIndex = nearestStringIndex(update.pitch.frequency);
+      if (detectedIndex !== state.tuningStringIndex) {
+        if (state.tunerAutoCandidate === detectedIndex) {
+          state.tunerAutoFrames += 1;
+        } else {
+          state.tunerAutoCandidate = detectedIndex;
+          state.tunerAutoFrames = 1;
+        }
+        if (state.tunerAutoFrames >= 2) {
+          state.tuningStringIndex = detectedIndex;
+          state.tunerSmoothCents = null;
+          state.tunerWasInTune = false;
+          state.tunerAutoCandidate = null;
+          state.tunerAutoFrames = 0;
+          updateTunerTarget();
+          persistPrefs();
+          els.tunerLive.textContent = `Auto-Erkennung: ${TUNING_STRINGS[detectedIndex].id} erkannt.`;
+        }
+      } else {
+        state.tunerAutoCandidate = null;
+        state.tunerAutoFrames = 0;
+      }
+    }
+
+    const target = TUNING_STRINGS[state.tuningStringIndex];
     const note = frequencyToNote(update.pitch.frequency);
     const rawCents = centsFromFrequency(update.pitch.frequency, target.frequency);
     if (rawCents === null) return;
@@ -634,15 +728,39 @@
     els.scaleHeading.textContent = scaleLabel(rootPc, type);
     els.scaleNotes.textContent = pcs.map((pc) => NOTE_NAMES[pc]).join(' · ');
     els.scaleFretboard.innerHTML = renderPentatonicFretboard(rootPc, type);
+    if (els.helpScaleDemo) {
+      els.helpScaleDemo.innerHTML = renderPentatonicFretboard(rootPc, type);
+    }
     els.scaleRoot.value = String(rootPc);
+    els.scaleBackward.checked = state.scale.backward;
     updateScaleTypeButtons();
     updateScaleHighlight();
   }
 
+  function totalScaleRuns() {
+    return PENTATONIC_RUNS + (state.scale.backward ? 1 : 0);
+  }
+
+  function updatePracticeRunLabel() {
+    const scale = state.scale;
+    const note = scale.sequence[scale.active ? scale.index : 0];
+    const run = note ? note.run : 1;
+    const direction = note && note.direction === 'down' ? ' · rückwärts' : '';
+    els.practiceTargetLabel.textContent = `Tonfolge ${run} / ${totalScaleRuns()}${direction}`;
+  }
+
   function refreshPracticeSequence() {
     const scale = state.scale;
-    scale.sequence = buildPentatonicSequence(scale.rootPc, scale.type, scale.attacks, scale.repeats);
-    els.practiceInfo.textContent = `${scale.attacks} Anschläge · ${scale.repeats}× pro Ton`;
+    scale.sequence = buildPentatonicSequence(
+      scale.rootPc,
+      scale.type,
+      PENTATONIC_RUNS,
+      scale.repeats,
+      scale.backward
+    );
+    els.practiceInfo.textContent = `${PENTATONIC_RUNS} Tonfolgen · ${scale.repeats}× pro Ton` +
+      (scale.backward ? ' · + rückwärts' : '');
+    els.scaleBackward.checked = scale.backward;
     renderPracticeSequence();
 
     if (!scale.active) {
@@ -650,6 +768,7 @@
       els.practiceTarget.textContent = first ? first.name : '–';
       els.practiceTarget.classList.remove('is-good');
       els.practiceDetected.textContent = 'Erkannt: –';
+      updatePracticeRunLabel();
       updatePracticeProgress();
       updateScaleHighlight();
     }
@@ -657,12 +776,18 @@
 
   function renderPracticeSequence() {
     els.practiceSequence.textContent = '';
-    const sequence = state.scale.sequence;
+    const scale = state.scale;
+    const sequence = scale.sequence;
     const total = sequence.length;
-    const visibleCount = 6;
-    let start = state.scale.index;
-    if (start >= total) start = Math.max(0, total - visibleCount);
-    if (!state.scale.active) start = 0;
+    if (!total) return;
+
+    const visibleCount = 10;
+    const anchorIndex = scale.active
+      ? Math.min(scale.index, total - 1)
+      : (scale.index >= total ? total - 1 : 0);
+    const anchor = sequence[anchorIndex];
+    const runStart = anchor ? sequence.findIndex((note) => note.run === anchor.run) : -1;
+    const start = runStart >= 0 ? runStart : 0;
 
     sequence.slice(start, start + visibleCount).forEach((note, offset) => {
       const index = start + offset;
@@ -670,7 +795,7 @@
       chip.className = 'seq-chip';
       chip.dataset.index = String(index);
       chip.textContent = note.name;
-      chip.setAttribute('aria-label', `${index + 1}. ${note.name}`);
+      chip.setAttribute('aria-label', `Tonfolge ${note.run}, ${index + 1}. Ton: ${note.name}`);
       els.practiceSequence.append(chip);
     });
     if (start + visibleCount < total) {
@@ -713,11 +838,9 @@
   }
 
   function syncPracticeControls() {
-    els.attacksValue.textContent = String(state.scale.attacks);
     els.repeatsValue.textContent = `${state.scale.repeats}×`;
-    els.scaleAttacks.value = String(state.scale.attacks);
     els.scaleRepeats.value = String(state.scale.repeats);
-    updateScaleSliderFill(els.scaleAttacks, state.scale.attacks, 5, 40);
+    els.scaleBackward.checked = state.scale.backward;
     updateScaleSliderFill(els.scaleRepeats, state.scale.repeats, 1, 4);
   }
 
@@ -729,7 +852,7 @@
   }
 
   function setScaleControlsDisabled(disabled) {
-    [els.scaleRoot, els.scaleMinorBtn, els.scaleMajorBtn, els.scaleAttacks, els.scaleRepeats]
+    [els.scaleRoot, els.scaleMinorBtn, els.scaleMajorBtn, els.scaleRepeats, els.scaleBackward, els.scalePreviewBtn]
       .forEach((element) => { element.disabled = disabled; });
   }
 
@@ -742,8 +865,56 @@
     });
   }
 
+  function clearPreviewTimers() {
+    state.previewTimers.forEach((timer) => window.clearTimeout(timer));
+    state.previewTimers = [];
+    els.scaleFretboard.querySelectorAll('.is-playing')
+      .forEach((element) => element.classList.remove('is-playing'));
+  }
+
+  async function previewScale() {
+    if (state.scale.active) return;
+    const { rootPc, type } = state.scale;
+    const notes = scaleFrequencies(rootPc, type);
+    const pcs = scalePitchClasses(rootPc, type);
+    const frequencies = notes.concat(notes.slice(0, -1).reverse());
+    const previewPcs = pcs.concat(pcs.slice(0, -1).reverse());
+    const noteSec = 0.28;
+    const gapSec = 0.05;
+
+    clearPreviewTimers();
+    els.scalePreviewBtn.disabled = true;
+
+    let duration = 0;
+    try {
+      duration = await engine.playToneSequence(frequencies, { noteSec, gapSec });
+    } catch (error) {
+      els.scalePreviewBtn.disabled = false;
+      toast('Vorspielen war nicht möglich.');
+      return;
+    }
+
+    previewPcs.forEach((pc, index) => {
+      const timer = window.setTimeout(() => {
+        els.scaleFretboard.querySelectorAll('.is-playing')
+          .forEach((element) => element.classList.remove('is-playing'));
+        els.scaleFretboard.querySelectorAll(`[data-pc="${pc}"]`)
+          .forEach((element) => element.classList.add('is-playing'));
+      }, Math.max(0, index * (noteSec + gapSec) * 1000));
+      state.previewTimers.push(timer);
+    });
+
+    const endTimer = window.setTimeout(() => {
+      clearPreviewTimers();
+      els.scalePreviewBtn.disabled = state.scale.active;
+    }, Math.max(250, duration * 1000 + 120));
+    state.previewTimers.push(endTimer);
+  }
+
   function stopPractice() {
     const scale = state.scale;
+    engine.stopToneSequence();
+    clearPreviewTimers();
     scale.active = false;
     scale.index = 0;
     scale.hits = 0;
@@ -764,13 +935,13 @@
     els.practiceCard.classList.remove('is-good');
     els.practiceCard.classList.remove('is-warn');
     els.practiceTarget.classList.remove('is-good');
-    els.practiceTargetLabel.textContent = 'Zielton';
     setPracticeStatus('Bereit zum Üben', '');
     els.practiceDetected.textContent = 'Erkannt: –';
-    els.practiceHint.textContent = 'Wähle Pentatonik und Anschläge, dann starte die Übung. Spiele jeden Ton einzeln und sauber.';
+    els.practiceHint.textContent = `Wähle Pentatonik und Tonfolgen, dann starte die Übung. ${PENTATONIC_RUNS} Tonfolgen mit allen fünf Tönen warten auf dich.`;
 
     const first = scale.sequence[0];
     els.practiceTarget.textContent = first ? first.name : '–';
+    updatePracticeRunLabel();
     updatePracticeProgress();
     renderPracticeSequence();
     updateScaleHighlight();
@@ -782,6 +953,9 @@
       return;
     }
     if (!state.scale.sequence.length) refreshPracticeSequence();
+
+    engine.stopToneSequence();
+    clearPreviewTimers();
 
     const scale = state.scale;
     scale.active = true;
@@ -803,13 +977,15 @@
     els.practiceCard.classList.remove('is-good');
     els.practiceCard.classList.remove('is-warn');
     els.practiceTarget.classList.remove('is-good');
-    els.practiceTargetLabel.textContent = 'Zielton';
-    els.practiceHint.textContent = 'Jeden Ton einzeln anschlagen. Bei Wiederholungen kurz abdämpfen, damit der nächste Anschlag erkannt wird.';
+    els.practiceHint.textContent = scale.backward
+      ? 'Jeden Ton einzeln anschlagen. Nach den fünf aufsteigenden Tonfolgen geht es rückwärts wieder abwärts.'
+      : 'Jeden Ton einzeln anschlagen. Bei Wiederholungen kurz abdämpfen, damit der nächste Anschlag erkannt wird.';
     els.practiceDetected.textContent = 'Erkannt: –';
 
     const target = scale.sequence[0];
     els.practiceTarget.textContent = target.name;
     setPracticeStatus(`Spiele ${target.name} …`, 'listening');
+    updatePracticeRunLabel();
     updatePracticeProgress();
     renderPracticeSequence();
     updateScaleHighlight();
@@ -818,7 +994,7 @@
     metronome.stop();
 
     if (els.practiceLive) {
-      els.practiceLive.textContent = `Übung gestartet. Erster Ton: ${target.name}.`;
+      els.practiceLive.textContent = `Übung gestartet. Erste Tonfolge, erster Ton: ${target.name}.`;
     }
   }
 
@@ -837,7 +1013,9 @@
     els.practiceTargetLabel.textContent = 'Ergebnis';
     els.practiceDetected.textContent = 'Erkannt: ✓';
     setPracticeStatus('Übung geschafft ✓', 'good');
-    els.practiceHint.textContent = `${scale.hits} von ${scale.sequence.length} Anschlägen richtig` +
+    els.practiceHint.textContent = `${PENTATONIC_RUNS} Tonfolgen` +
+      (scale.backward ? ' auf- und abwärts' : '') + ' geschafft · ' +
+      `${scale.hits} von ${scale.sequence.length} Anschlägen richtig` +
       (scale.misses > 0 ? ` · ${scale.misses} Fehler` : '') + '.';
     els.practiceCard.classList.add('is-good');
     pulsePracticeCard();
@@ -847,7 +1025,8 @@
 
     if (navigator.vibrate) navigator.vibrate([40, 50, 80]);
     if (els.practiceLive) {
-      els.practiceLive.textContent = `Übung geschafft. ${scale.hits} von ${scale.sequence.length} Anschlägen richtig.`;
+      els.practiceLive.textContent = `${PENTATONIC_RUNS} Tonfolgen geschafft. ` +
+        `${scale.hits} von ${scale.sequence.length} Anschlägen richtig.`;
     }
   }
 
@@ -876,9 +1055,14 @@
     updatePracticeProgress();
     renderPracticeSequence();
     updateScaleHighlight();
+    updatePracticeRunLabel();
     els.practiceTarget.textContent = next.name;
     els.practiceTarget.classList.remove('is-good');
     setPracticeStatus(`Spiele ${next.name} …`, 'listening');
+    if (next.run !== target.run) {
+      const direction = next.direction === 'down' ? 'Jetzt rückwärts: ' : '';
+      els.practiceHint.textContent = `Tonfolge ${target.run} geschafft ✓ ${direction}Weiter mit Tonfolge ${next.run}.`;
+    }
     if (els.practiceLive) {
       els.practiceLive.textContent = `${target.name} richtig. Weiter mit ${next.name}.`;
     }
@@ -1444,6 +1628,32 @@
 
   let lastFocusedElement = null;
 
+  function openHelp() {
+    lastFocusedElement = document.activeElement;
+    const clone = els.helpView.cloneNode(true);
+    clone.removeAttribute('id');
+    clone.removeAttribute('hidden');
+    clone.querySelectorAll('[id]').forEach((element) => element.removeAttribute('id'));
+    els.helpModalBody.replaceChildren(...clone.childNodes);
+    els.helpModal.hidden = false;
+    document.body.style.overflow = 'hidden';
+    els.closeHelp.focus({ preventScroll: true });
+  }
+
+  function closeHelp() {
+    els.helpModal.hidden = true;
+    document.body.style.overflow = '';
+    if (lastFocusedElement && typeof lastFocusedElement.focus === 'function') {
+      lastFocusedElement.focus({ preventScroll: true });
+    }
+  }
+
+  function initAbout() {
+    if (els.appVersion && APP_VERSION) els.appVersion.textContent = APP_VERSION;
+    if (els.repoLink && REPO_URL) els.repoLink.href = REPO_URL;
+    if (els.kofiLink && KOFI_URL) els.kofiLink.href = KOFI_URL;
+  }
+
   function openSettings() {
     lastFocusedElement = document.activeElement;
     els.settingsModal.hidden = false;
@@ -1475,13 +1685,18 @@
 
   function bindEvents() {
     els.startBtn.addEventListener('click', startMic);
+    els.startHelpBtn.addEventListener('click', openHelp);
 
     els.settingsBtn.addEventListener('click', openSettings);
     els.closeSettings.addEventListener('click', closeSettings);
     els.settingsModal.querySelector('[data-close-settings]').addEventListener('click', closeSettings);
+    els.closeHelp.addEventListener('click', closeHelp);
+    els.helpModal.querySelector('[data-close-help]').addEventListener('click', closeHelp);
 
     document.addEventListener('keydown', (event) => {
-      if (event.key === 'Escape' && !els.settingsModal.hidden) closeSettings();
+      if (event.key !== 'Escape') return;
+      if (!els.settingsModal.hidden) closeSettings();
+      if (!els.helpModal.hidden) closeHelp();
     });
 
     els.settingsModal.addEventListener('keydown', (event) => {
@@ -1508,7 +1723,9 @@
     els.modeTunerBtn.addEventListener('click', () => applyMode('tuner'));
     els.modePentatonicBtn.addEventListener('click', () => applyMode('pentatonic'));
     els.modeSongBtn.addEventListener('click', () => applyMode('song'));
+    els.modeHelpBtn.addEventListener('click', () => applyMode('help'));
     els.refToneBtn.addEventListener('click', playReferenceTone);
+    els.tunerAuto.addEventListener('change', (event) => setTunerAuto(event.target.checked));
 
     els.songSelect.addEventListener('change', (event) => {
       stopSong();
@@ -1536,13 +1753,6 @@
     els.scaleMinorBtn.addEventListener('click', () => applyScaleType('minor'));
     els.scaleMajorBtn.addEventListener('click', () => applyScaleType('major'));
 
-    els.scaleAttacks.addEventListener('input', (event) => {
-      state.scale.attacks = Number(event.target.value);
-      syncPracticeControls();
-      stopPractice();
-      refreshPracticeSequence();
-      persistPrefs();
-    });
     els.scaleRepeats.addEventListener('input', (event) => {
       state.scale.repeats = Number(event.target.value);
       syncPracticeControls();
@@ -1550,6 +1760,13 @@
       refreshPracticeSequence();
       persistPrefs();
     });
+    els.scaleBackward.addEventListener('change', (event) => {
+      state.scale.backward = event.target.checked;
+      stopPractice();
+      refreshPracticeSequence();
+      persistPrefs();
+    });
+    els.scalePreviewBtn.addEventListener('click', previewScale);
 
     els.practiceStart.addEventListener('click', startPractice);
     els.practiceStop.addEventListener('click', () => {
@@ -1611,6 +1828,9 @@
     buildChordButtons();
     buildTunerStrings();
     buildScaleRootOptions();
+    if (els.helpChordDemo) {
+      els.helpChordDemo.innerHTML = renderFretboard(CHORDS.G);
+    }
     updateScaleDisplay();
     refreshPracticeSequence();
     syncPracticeControls();
@@ -1618,6 +1838,7 @@
     buildSongOptions();
     initSongView();
     renderStats();
+    initAbout();
     updateTunerTarget();
     setBpm(metronome.bpm);
     bindEvents();

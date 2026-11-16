@@ -27,6 +27,23 @@
       ]
     },
     {
+      id: 'dont-look-back-in-anger',
+      title: "Don't Look Back in Anger",
+      artist: 'Oasis',
+      bpm: 82,
+      timeSignature: '4/4',
+      section: 'Strophe & Refrain',
+      originalCapo: 0,
+      practiceCapo: 0,
+      difficulty: 'Mittelstufe',
+      description: 'Acht Takte Strophe und Refrain in C-Dur: C – G – Am – E7 – F – G – C – G. Ohne Capo; das F ist ein Barré-Akkord.',
+      chordOrder: ['C', 'G', 'Am', 'E7', 'F'],
+      bars: [
+        'C', 'G', 'Am', 'E7',
+        'F', 'G', 'C', 'G'
+      ]
+    },
+    {
       id: 'when-i-come-around',
       title: 'When I Come Around',
       artist: 'Green Day',

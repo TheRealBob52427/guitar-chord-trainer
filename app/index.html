@@ -13,19 +13,20 @@
   <link rel="manifest" href="manifest.json">
   <link rel="icon" href="icons/favicon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="icons/icon-180.png">
-  <link rel="stylesheet" href="css/styles.css?v=1.3.1">
-  <script src="js/chords.js?v=1.3.1" defer></script>
-  <script src="js/detection.js?v=1.3.1" defer></script>
-  <script src="js/pitch.js?v=1.3.1" defer></script>
-  <script src="js/tuning.js?v=1.3.1" defer></script>
-  <script src="js/stats.js?v=1.3.1" defer></script>
-  <script src="js/prefs.js?v=1.3.1" defer></script>
-  <script src="js/pentatonic.js?v=1.3.1" defer></script>
-  <script src="js/songs.js?v=1.3.1" defer></script>
-  <script src="js/fretboard.js?v=1.3.1" defer></script>
-  <script src="js/metronome.js?v=1.3.1" defer></script>
-  <script src="js/audio.js?v=1.3.1" defer></script>
-  <script src="js/app.js?v=1.3.1" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=1.5.0">
+  <script src="js/chords.js?v=1.5.0" defer></script>
+  <script src="js/detection.js?v=1.5.0" defer></script>
+  <script src="js/pitch.js?v=1.5.0" defer></script>
+  <script src="js/tuning.js?v=1.5.0" defer></script>
+  <script src="js/stats.js?v=1.5.0" defer></script>
+  <script src="js/prefs.js?v=1.5.0" defer></script>
+  <script src="js/pentatonic.js?v=1.5.0" defer></script>
+  <script src="js/songs.js?v=1.5.0" defer></script>
+  <script src="js/about.js?v=1.5.0" defer></script>
+  <script src="js/fretboard.js?v=1.5.0" defer></script>
+  <script src="js/metronome.js?v=1.5.0" defer></script>
+  <script src="js/audio.js?v=1.5.0" defer></script>
+  <script src="js/app.js?v=1.5.0" defer></script>
 </head>
 <body>
   <header class="app-header">
@@ -55,11 +56,15 @@
       </div>
       <h1 id="startTitle">Stimme deine Gitarre.<br>Dann spiel los.</h1>
       <p class="start-copy">
-        Der Trainer hört dir zu, erkennt <strong>G</strong>, <strong>Cadd9</strong>, <strong>Em7</strong>,
+        Der Trainer hört dir zu, erkennt <strong>G</strong>, <strong>C</strong>, <strong>Am</strong>,
+        <strong>E7</strong>, <strong>F</strong>, <strong>Cadd9</strong>, <strong>Em7</strong>,
         <strong>Dsus4</strong> und <strong>A7sus4</strong> – stimmt jede Saite, prüft Pentatonik und begleitet dich durch Songs.
       </p>
       <button id="startBtn" class="btn btn-primary btn-lg" type="button">
         <span aria-hidden="true">🎤</span> Mikrofon aktivieren
+      </button>
+      <button id="startHelpBtn" class="btn btn-secondary btn-full" type="button">
+        Griffbrett-Notation erklärt
       </button>
       <p class="fineprint">
         Dein Audio wird ausschließlich lokal im Browser analysiert – nichts wird hochgeladen oder gespeichert.
@@ -76,6 +81,7 @@
         <button id="modeTunerBtn" class="mode-btn" type="button" aria-pressed="false">Stimmen</button>
         <button id="modePentatonicBtn" class="mode-btn" type="button" aria-pressed="false">Pentatonik</button>
         <button id="modeSongBtn" class="mode-btn" type="button" aria-pressed="false">Songs</button>
+        <button id="modeHelpBtn" class="mode-btn" type="button" aria-pressed="false">Hilfe</button>
       </nav>
 
       <div id="trainerView">
@@ -171,6 +177,14 @@
             <span id="tunerStatus">Spiele die tiefe E-Saite …</span>
           </div>
 
+          <label class="switch-row" for="tunerAuto">
+            <span class="switch-copy">
+              <strong>Auto-Erkennung</strong>
+              <small>Erkennt die angeschlagene Saite automatisch – einfach eine Saite anzupfen.</small>
+            </span>
+            <input id="tunerAuto" class="switch-input" type="checkbox">
+          </label>
+
           <div id="tunerStrings" class="tuner-strings" role="group" aria-label="Saite wählen"></div>
 
           <button id="refToneBtn" class="btn btn-secondary btn-full" type="button">Referenzton abspielen</button>
@@ -218,15 +232,15 @@
                 <h2 id="practiceStatus">Bereit zum Üben</h2>
               </div>
             </div>
-            <span id="practiceProgressLabel" class="pill pill-score">0 / 15</span>
+            <span id="practiceProgressLabel" class="pill pill-score">0 / 25</span>
           </div>
 
           <div class="practice-readout">
-            <span id="practiceTargetLabel" class="practice-target-label">Zielton</span>
+            <span id="practiceTargetLabel" class="practice-target-label">Tonfolge 1 / 5</span>
             <span id="practiceTarget" class="practice-target">A</span>
             <div class="practice-meta">
               <span id="practiceDetected">Erkannt: –</span>
-              <span id="practiceInfo">15 Anschläge · 2× pro Ton</span>
+              <span id="practiceInfo">5 Tonfolgen · 1× pro Ton</span>
             </div>
           </div>
 
@@ -240,19 +254,22 @@
 
           <p class="practice-settings-title">Übungseinstellungen</p>
           <div class="practice-controls">
-            <label class="practice-control" for="scaleAttacks">
-              <span>Anschläge</span>
-              <output id="attacksValue" for="scaleAttacks">15</output>
-            </label>
-            <input id="scaleAttacks" class="slider" type="range" min="5" max="40" step="1" value="15">
-
             <label class="practice-control" for="scaleRepeats">
-              <span>Pro Ton</span>
-              <output id="repeatsValue" for="scaleRepeats">2×</output>
+              <span>Wiederholungen pro Ton</span>
+              <output id="repeatsValue" for="scaleRepeats">1×</output>
             </label>
-            <input id="scaleRepeats" class="slider" type="range" min="1" max="4" step="1" value="2">
+            <input id="scaleRepeats" class="slider" type="range" min="1" max="4" step="1" value="1">
           </div>
 
+          <label class="switch-row" for="scaleBackward">
+            <span class="switch-copy">
+              <strong>Anschließend rückwärts</strong>
+              <small>Nach den 5 Tonfolgen eine Tonfolge abwärts spielen (5–4–3–2–1).</small>
+            </span>
+            <input id="scaleBackward" class="switch-input" type="checkbox">
+          </label>
+
+          <button id="scalePreviewBtn" class="btn btn-secondary btn-full" type="button">Pentatonik anhören</button>
           <button id="practiceStart" class="btn btn-primary btn-full" type="button">Übung starten</button>
           <button id="practiceStop" class="btn btn-secondary btn-full" type="button" hidden>Übung stoppen</button>
           <p id="practiceHint" class="chord-tip practice-hint">
@@ -334,8 +351,71 @@
           </p>
         </section>
       </div>
+
+      <div id="helpView" hidden>
+        <section class="card help-card">
+          <div class="card-head">
+            <div>
+              <p class="eyebrow">Hilfe</p>
+              <h2>Griffbrett-Notation</h2>
+            </div>
+          </div>
+          <p class="help-intro">
+            Alle Diagramme in der App zeigen das Griffbrett aus Sicht von oben:
+            Die Saiten laufen senkrecht, die Bünde waagerecht. Die tiefe E-Saite
+            liegt links, die hohe E-Saite rechts. Je dicker die Linie, desto
+            dicker die Saite.
+          </p>
+        </section>
+
+        <section class="card help-card">
+          <h3 class="help-title">Akkord-Diagramm</h3>
+          <div id="helpChordDemo" class="help-demo"></div>
+          <ul class="help-list">
+            <li><strong>Waagerechte Linien</strong> sind die Bünde. Die dicke Linie oben ist der Sattel (0. Bund), die Zahlen links zählen die Bünde 1–5.</li>
+            <li><strong>Gefüllte Punkte</strong> zeigen, wo eine Saite gegriffen wird. Die Zahl im Punkt ist der Finger: <span class="help-key">1</span> Zeigefinger, <span class="help-key">2</span> Mittelfinger, <span class="help-key">3</span> Ringfinger, <span class="help-key">4</span> kleiner Finger.</li>
+            <li><strong>○ über der Saite</strong> bedeutet: Saite leer (offen) anschlagen.</li>
+            <li><strong>× über der Saite</strong> bedeutet: Saite nicht anschlagen bzw. mit der Greifhand dämpfen.</li>
+            <li>Die Saitennamen unter dem Diagramm sind <strong>E A D G B E</strong> – von der tiefsten zur höchsten Saite.</li>
+          </ul>
+        </section>
+
+        <section class="card help-card">
+          <h3 class="help-title">Pentatonik-Griffbrett</h3>
+          <div id="helpScaleDemo" class="help-demo"></div>
+          <ul class="help-list">
+            <li>Das Pentatonik-Diagramm zeigt <strong>zwölf Bünde</strong>. Jeder Punkt trägt den Namen des Tons, der dort klingt.</li>
+            <li><strong>Rote Punkte</strong> sind der Grundton der Skala, dunkle Punkte die übrigen Skalentöne. Töne außerhalb der Pentatonik werden nicht angezeigt.</li>
+            <li>Die Punkte <strong>über dem Sattel</strong> sind leere Saiten (0. Bund).</li>
+            <li>Der <strong>weiß umrandete Punkt</strong> ist der aktuell erwartete Zielton. Er kann auf mehreren Saiten und in mehreren Oktaven liegen – es zählt der Tonname, nicht die Lage.</li>
+            <li>Die kleinen Punkte auf der Griffbrettmitte markieren die Bünde 3, 5, 7, 9 und 12 als Orientierung.</li>
+          </ul>
+        </section>
+
+        <section class="card help-card">
+          <h3 class="help-title">Stimmgerät &amp; Übungsfolge</h3>
+          <ul class="help-list">
+            <li>Der <strong>Zeiger im Stimmgerät</strong> zeigt die Abweichung in Cent: links = zu tief, rechts = zu hoch. Der grüne Bereich sind <strong>±5 Cent</strong>; dort ist die Saite gestimmt.</li>
+            <li><strong>Auto-Erkennung</strong> wählt die angeschlagene Saite selbst. Ohne Auto tippst du die Saite vorher in der Reihe E2–E4 an.</li>
+            <li>Die <strong>Chips unter „Abfolge“</strong> zeigen die erwarteten Töne. Der hervorgehobene Chip ist der nächste Ton, abgeblendete Chips sind bereits geschafft.</li>
+            <li><strong>Tonfolge</strong> bedeutet eine komplette Runde durch alle fünf Skalentöne. Eine Übung besteht aus fünf Tonfolgen; mit „Anschließend rückwärts“ kommt eine absteigende Runde dazu.</li>
+          </ul>
+        </section>
+      </div>
     </div>
   </main>
+
+  <div id="helpModal" class="modal" hidden>
+    <div class="modal-backdrop" data-close-help></div>
+    <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="helpModalTitle">
+      <div class="sheet-handle" aria-hidden="true"></div>
+      <div class="sheet-head">
+        <h2 id="helpModalTitle">Hilfe · Griffbrett-Notation</h2>
+        <button id="closeHelp" class="icon-btn" type="button" aria-label="Hilfe schließen">✕</button>
+      </div>
+      <div id="helpModalBody"></div>
+    </div>
+  </div>
 
   <div id="settingsModal" class="modal" hidden>
     <div class="modal-backdrop" data-close-settings></div>
@@ -369,7 +449,20 @@
         <button id="exportStats" class="btn btn-secondary btn-full" type="button">Statistik als CSV exportieren</button>
         <button id="resetStats" class="btn btn-danger btn-full" type="button">Statistik zurücksetzen</button>
       </div>
-      <p class="fineprint version">Version 1.3.1 · Läuft vollständig offline</p>
+
+      <div class="divider" aria-hidden="true"></div>
+
+      <div class="about-block">
+        <p class="fineprint version">
+          Version <span id="appVersion">1.5.0</span> · Läuft vollständig offline
+        </p>
+        <a id="repoLink" class="btn btn-secondary btn-full"
+           href="https://github.com/TheRealBob52427/guitar-chord-trainer"
+           target="_blank" rel="noopener noreferrer">Projekt auf GitHub</a>
+        <a id="kofiLink" class="btn btn-kofi btn-full"
+           href="https://ko-fi.com/therealbob33119"
+           target="_blank" rel="noopener noreferrer">☕ Buy me a coffee</a>
+      </div>
     </div>
   </div>
 

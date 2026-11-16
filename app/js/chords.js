@@ -25,6 +25,16 @@
       fingers: [2, 1, 0, 0, 0, 3],
       tip: 'Mittelfinger auf die tiefe E-Saite (3. Bund), Zeigefinger auf die A-Saite (2. Bund), Ringfinger auf die hohe E-Saite (3. Bund).'
     },
+    C: {
+      id: 'C',
+      name: 'C-Dur',
+      symbol: 'C',
+      notes: ['C', 'E', 'G'],
+      pitchClasses: [0, 4, 7],
+      strings: [-1, 3, 2, 0, 1, 0],
+      fingers: [0, 3, 2, 0, 1, 0],
+      tip: 'Ringfinger auf die A-Saite (3. Bund), Mittelfinger auf die D-Saite (2. Bund), Zeigefinger auf die B-Saite (1. Bund); die hohe E-Saite bleibt offen.'
+    },
     Cadd9: {
       id: 'Cadd9',
       name: 'Cadd9',
@@ -34,6 +44,16 @@
       strings: [-1, 3, 2, 0, 3, 3],
       fingers: [0, 2, 1, 0, 3, 4],
       tip: 'Mittelfinger auf die A-Saite (3. Bund), Zeigefinger auf die D-Saite (2. Bund), Ring- und kleiner Finger auf die 3. Bünde von B- und hoher E-Saite.'
+    },
+    Am: {
+      id: 'Am',
+      name: 'A-Moll',
+      symbol: 'Am',
+      notes: ['A', 'C', 'E'],
+      pitchClasses: [9, 0, 4],
+      strings: [-1, 0, 2, 2, 1, 0],
+      fingers: [0, 0, 2, 3, 1, 0],
+      tip: 'Zeigefinger auf die B-Saite (1. Bund), Mittel- und Ringfinger auf D- und G-Saite (2. Bund); A- und hohe E-Saite bleiben offen.'
     },
     Em7: {
       id: 'Em7',
@@ -64,10 +84,30 @@
       strings: [-1, 0, 2, 0, 3, 0],
       fingers: [0, 0, 1, 0, 3, 0],
       tip: 'Offene A-Saite, Zeigefinger auf die D-Saite (2. Bund), Ringfinger auf die B-Saite (3. Bund); G- und hohe E-Saite bleiben offen.'
+    },
+    E7: {
+      id: 'E7',
+      name: 'E-Dur 7',
+      symbol: 'E7',
+      notes: ['E', 'G#', 'B', 'D'],
+      pitchClasses: [4, 8, 11, 2],
+      strings: [0, 2, 2, 1, 3, 0],
+      fingers: [0, 2, 3, 1, 4, 0],
+      tip: 'Mittelfinger auf die A-Saite (2. Bund), Ringfinger auf die D-Saite (2. Bund), Zeigefinger auf die G-Saite (1. Bund), kleiner Finger auf die B-Saite (3. Bund); tiefe und hohe E-Saite bleiben offen. Diese Variante greift die Septime D mit.'
+    },
+    F: {
+      id: 'F',
+      name: 'F-Dur (Barré)',
+      symbol: 'F',
+      notes: ['F', 'A', 'C'],
+      pitchClasses: [5, 9, 0],
+      strings: [1, 3, 3, 2, 1, 1],
+      fingers: [1, 3, 4, 2, 1, 1],
+      tip: 'Zeigefinger als Barré über alle sechs Saiten im 1. Bund; Ring- und kleiner Finger auf A- und D-Saite (3. Bund), Mittelfinger auf die G-Saite (2. Bund).'
     }
   };
 
-  const CHORD_ORDER = ['G', 'Cadd9', 'Em7', 'Dsus4', 'A7sus4'];
+  const CHORD_ORDER = ['G', 'C', 'Cadd9', 'Am', 'Em7', 'Dsus4', 'A7sus4', 'E7', 'F'];
 
   // `strings` ist kanonisch, `frets` wird überall im Renderer und in den Tests
   // verwendet.
