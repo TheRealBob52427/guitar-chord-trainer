@@ -23,12 +23,14 @@ test('Default-Einstellungen sind vollständig', () => {
     tuningStringIndex: 0,
     tunerAuto: false,
     scale: { rootPc: 9, type: 'minor', repeats: 1, backward: false },
+    riffId: 'seven-nation-army',
     deviceId: ''
   });
 });
 
-test('Song- und Hilfe-Modus sind gültige persistierte Modi', () => {
+test('Song-, Riff- und Hilfe-Modus sind gültige persistierte Modi', () => {
   assert.equal(Prefs.normalizePrefs({ mode: 'song' }).mode, 'song');
+  assert.equal(Prefs.normalizePrefs({ mode: 'riff' }).mode, 'riff');
   assert.equal(Prefs.normalizePrefs({ mode: 'help' }).mode, 'help');
 });
 
@@ -40,6 +42,7 @@ test('Einstellungen überleben Speichern und Laden', () => {
     tuningStringIndex: 4,
     tunerAuto: true,
     scale: { rootPc: 4, type: 'major', repeats: 3, backward: true },
+    riffId: 'californication',
     deviceId: 'device-abc'
   };
   assert.equal(Prefs.savePrefs(storage, saved), true);
@@ -63,6 +66,7 @@ test('Ungültige Werte werden begrenzt oder ersetzt', () => {
   assert.equal(normalized.scale.type, 'minor');
   assert.equal(normalized.scale.repeats, 1);
   assert.equal(normalized.scale.backward, false);
+  assert.equal(normalized.riffId, 'seven-nation-army');
   assert.equal(normalized.deviceId, '');
 
   const low = Prefs.normalizePrefs({ bpm: 1, scale: { repeats: 9 } });

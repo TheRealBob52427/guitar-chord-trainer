@@ -27,6 +27,12 @@
     scaleFrequencies,
     buildSequence: buildPentatonicSequence,
     renderPentatonicFretboard,
+    RIFFS,
+    getRiff,
+    riffLabel,
+    stringDescription,
+    renderRiffFretboard,
+    RIFF_STRING_NAMES,
     nearestStringIndex,
     SONGS,
     getSong,
@@ -49,11 +55,13 @@
     modeTrainerBtn: document.getElementById('modeTrainerBtn'),
     modeTunerBtn: document.getElementById('modeTunerBtn'),
     modePentatonicBtn: document.getElementById('modePentatonicBtn'),
+    modeRiffBtn: document.getElementById('modeRiffBtn'),
     modeSongBtn: document.getElementById('modeSongBtn'),
     modeHelpBtn: document.getElementById('modeHelpBtn'),
     trainerView: document.getElementById('trainerView'),
     tunerView: document.getElementById('tunerView'),
     pentatonicView: document.getElementById('pentatonicView'),
+    riffView: document.getElementById('riffView'),
     songView: document.getElementById('songView'),
     helpView: document.getElementById('helpView'),
     helpChordDemo: document.getElementById('helpChordDemo'),
@@ -119,6 +127,29 @@
     songStop: document.getElementById('songStop'),
     songHint: document.getElementById('songHint'),
     songLive: document.getElementById('songLive'),
+    riffHeading: document.getElementById('riffHeading'),
+    riffMeta: document.getElementById('riffMeta'),
+    riffSelect: document.getElementById('riffSelect'),
+    riffInfo: document.getElementById('riffInfo'),
+    riffFretboard: document.getElementById('riffFretboard'),
+    riffPracticeCard: document.getElementById('riffPracticeCard'),
+    riffDot: document.getElementById('riffDot'),
+    riffStatus: document.getElementById('riffStatus'),
+    riffProgressLabel: document.getElementById('riffProgressLabel'),
+    riffTarget: document.getElementById('riffTarget'),
+    riffTargetLabel: document.getElementById('riffTargetLabel'),
+    riffDetected: document.getElementById('riffDetected'),
+    riffPosition: document.getElementById('riffPosition'),
+    riffMeter: document.getElementById('riffMeter'),
+    riffProgressFill: document.getElementById('riffProgressFill'),
+    riffSequence: document.getElementById('riffSequence'),
+    riffPreviewBtn: document.getElementById('riffPreviewBtn'),
+    riffStart: document.getElementById('riffStart'),
+    riffStop: document.getElementById('riffStop'),
+    riffClickBtn: document.getElementById('riffClickBtn'),
+    riffHint: document.getElementById('riffHint'),
+    riffLive: document.getElementById('riffLive'),
+    riffBeatDots: document.getElementById('riffBeatDots'),
     chordHeading: document.getElementById('chordHeading'),
     chordNotes: document.getElementById('chordNotes'),
     chordTip: document.getElementById('chordTip'),
@@ -184,6 +215,23 @@
       feedbackUntil: 0
     },
     previewTimers: [],
+    riff: {
+      riffId: storedPrefs.riffId,
+      notes: [],
+      index: 0,
+      hits: 0,
+      misses: 0,
+      active: false,
+      needRelease: false,
+      candidateFrames: 0,
+      missLatched: false,
+      lastLevelDb: null,
+      lastHitPc: null,
+      graceUntil: 0,
+      feedbackUntil: 0,
+      previewTimers: [],
+      beatTimeout: null
+    },
     song: {
       songId: SONGS[0].id,
       tempo: SONGS[0].bpm,
@@ -227,6 +275,13 @@
     bpm: SONGS[0].bpm
   });
 
+  const riffMetronome = new Metronome({
+    getContext: () => engine.ctx,
+    onBeat: handleRiffBeat,
+    onStateChange: handleRiffMetroState,
+    bpm: RIFFS[0].bpm
+  });
+
   const START_BTN_HTML = '<span aria-hidden="true">🎤</span> Mikrofon aktivieren';
 
   function persistPrefs() {
@@ -241,6 +296,7 @@
         repeats: state.scale.repeats,
         backward: state.scale.backward
       },
+      riffId: state.riff.riffId,
       deviceId: state.selectedDeviceId
     });
   }
@@ -444,11 +500,12 @@
   /* ---------- Modus & Stimmgerät ---------- */
 
   function applyMode(mode) {
-    const next = (mode === 'tuner' || mode === 'pentatonic' || mode === 'song' || mode === 'help')
+    const next = (mode === 'tuner' || mode === 'pentatonic' || mode === 'riff' || mode === 'song' || mode === 'help')
       ? mode
       : 'trainer';
     const tunerActive = next === 'tuner';
     const pentatonicActive = next === 'pentatonic';
+    const riffActive = next === 'riff';
     const songActive = next === 'song';
     const helpActive = next === 'help';
     state.mode = next;
@@ -458,21 +515,25 @@
     els.modeTrainerBtn.classList.toggle('active', next === 'trainer');
     els.modeTunerBtn.classList.toggle('active', tunerActive);
     els.modePentatonicBtn.classList.toggle('active', pentatonicActive);
+    els.modeRiffBtn.classList.toggle('active', riffActive);
     els.modeSongBtn.classList.toggle('active', songActive);
     els.modeHelpBtn.classList.toggle('active', helpActive);
     els.modeTrainerBtn.setAttribute('aria-pressed', String(next === 'trainer'));
     els.modeTunerBtn.setAttribute('aria-pressed', String(tunerActive));
     els.modePentatonicBtn.setAttribute('aria-pressed', String(pentatonicActive));
+    els.modeRiffBtn.setAttribute('aria-pressed', String(riffActive));
     els.modeSongBtn.setAttribute('aria-pressed', String(songActive));
     els.modeHelpBtn.setAttribute('aria-pressed', String(helpActive));
 
     els.trainerView.hidden = next !== 'trainer';
     els.tunerView.hidden = !tunerActive;
     els.pentatonicView.hidden = !pentatonicActive;
+    els.riffView.hidden = !riffActive;
     els.songView.hidden = !songActive;
     els.helpView.hidden = !helpActive;
 
     if (!songActive) stopSong();
+    if (!riffActive) stopRiff();
 
     if (tunerActive) {
       stopPractice();
@@ -496,6 +557,12 @@
       engine.setChordOrder(CHORD_ORDER);
       engine.setMode('chords');
       initSongView();
+    } else if (riffActive) {
+      stopPractice();
+      metronome.stop();
+      stopSong();
+      engine.setMode('scale');
+      initRiffView();
     } else if (helpActive) {
       stopPractice();
       metronome.stop();
@@ -1073,6 +1140,8 @@
       handleTunerUpdate(update);
     } else if (state.mode === 'pentatonic') {
       handleScalePitch(update);
+    } else if (state.mode === 'riff') {
+      handleRiffPitch(update);
     }
   }
 
@@ -1142,6 +1211,451 @@
       setPracticeStatus('Ton passt nicht', 'warn');
       els.practiceHint.textContent = `Erwartet ${target.name} – gehört ${note.name}. Nochmal versuchen.`;
       scale.feedbackUntil = now + 900;
+    }
+  }
+
+  /* ---------- Riff-/Einzelnoten-Modus ---------- */
+
+  function currentRiff() {
+    return getRiff(state.riff.riffId);
+  }
+
+  function setRiffStatus(text, kind) {
+    if (els.riffStatus.textContent !== text) els.riffStatus.textContent = text;
+    els.riffDot.className = 'status-dot' + (kind ? ` is-${kind}` : '');
+  }
+
+  function buildRiffOptions() {
+    els.riffSelect.textContent = '';
+    RIFFS.forEach((riff) => {
+      els.riffSelect.add(new Option(riffLabel(riff), riff.id));
+    });
+    els.riffSelect.value = state.riff.riffId;
+  }
+
+  function riffStepLabel(index) {
+    const total = state.riff.notes.length;
+    const note = state.riff.notes[index];
+    const section = note && note.section
+      ? ` · ${note.section === 'Riff' ? 'Riff' : `Akkord ${note.section}`}`
+      : '';
+    return `Note ${Math.min(index + 1, total)} / ${total}${section}`;
+  }
+
+  function updateRiffTarget() {
+    const note = state.riff.notes[state.riff.index];
+    if (!note) return;
+    els.riffTarget.textContent = note.name;
+    els.riffTargetLabel.textContent = riffStepLabel(state.riff.index);
+    els.riffPosition.textContent = `${note.label} · ${stringDescription(note)}`;
+  }
+
+  function updateRiffBoard() {
+    const riff = currentRiff();
+    const activeIndex = state.riff.index < state.riff.notes.length ? state.riff.index : null;
+    els.riffFretboard.innerHTML = renderRiffFretboard(riff, activeIndex);
+  }
+
+  function renderRiffSequence() {
+    els.riffSequence.textContent = '';
+    state.riff.notes.forEach((note, index) => {
+      const chip = document.createElement('span');
+      chip.className = 'seq-chip';
+      chip.dataset.index = String(index);
+
+      const name = document.createElement('span');
+      name.textContent = note.name;
+      const position = document.createElement('small');
+      position.textContent = `${RIFF_STRING_NAMES[note.string]}${note.fret}`;
+
+      chip.append(name, position);
+      chip.title = `Note ${index + 1}: ${note.label}, ${stringDescription(note)}`;
+      chip.setAttribute('aria-label', chip.title);
+      els.riffSequence.append(chip);
+    });
+    updateRiffSequenceState();
+  }
+
+  function updateRiffSequenceState() {
+    const chips = els.riffSequence.children;
+    for (let i = 0; i < chips.length; i += 1) {
+      const index = Number(chips[i].dataset.index);
+      chips[i].classList.toggle('is-done', index < state.riff.index);
+      chips[i].classList.toggle('is-current', state.riff.active && index === state.riff.index);
+    }
+    const current = chips[state.riff.index];
+    if (current && current.offsetLeft !== undefined) {
+      els.riffSequence.scrollLeft = Math.max(0,
+        current.offsetLeft - els.riffSequence.clientWidth / 2 + current.offsetWidth / 2);
+    }
+  }
+
+  function updateRiffProgress() {
+    const total = state.riff.notes.length;
+    const done = Math.min(state.riff.index, total);
+    const percent = total > 0 ? Math.round((done / total) * 100) : 0;
+    els.riffProgressLabel.textContent = `${done} / ${total}`;
+    els.riffProgressFill.style.width = `${percent}%`;
+    els.riffMeter.setAttribute('aria-valuenow', String(percent));
+  }
+
+  function setRiffControlsDisabled(disabled) {
+    [els.riffSelect, els.riffPreviewBtn].forEach((element) => { element.disabled = disabled; });
+  }
+
+  function updateRiffClickButton() {
+    const playing = riffMetronome.playing;
+    els.riffClickBtn.textContent = `${playing ? 'Klick stoppen' : 'Klick starten'} · ${riffMetronome.bpm} BPM`;
+    els.riffClickBtn.setAttribute('aria-pressed', String(playing));
+    els.riffClickBtn.classList.toggle('is-playing', playing);
+    els.riffBeatDots.hidden = !playing;
+  }
+
+  function clearRiffPreviewTimers() {
+    state.riff.previewTimers.forEach((timer) => window.clearTimeout(timer));
+    state.riff.previewTimers = [];
+    els.riffSequence.querySelectorAll('.is-playing').forEach((element) => element.classList.remove('is-playing'));
+    els.riffFretboard.querySelectorAll('.is-playing').forEach((element) => element.classList.remove('is-playing'));
+  }
+
+  function initRiffView() {
+    const riff = currentRiff();
+    state.riff.riffId = riff.id;
+    state.riff.notes = riff.notes;
+    riffMetronome.setBpm(riff.bpm);
+
+    els.riffHeading.textContent = riff.title;
+    els.riffMeta.textContent = `${riff.artist} · ${riff.bpm} BPM`;
+    els.riffInfo.textContent = riff.description;
+    els.riffSelect.value = riff.id;
+    els.riffSelect.disabled = false;
+    els.riffStart.hidden = false;
+    els.riffStart.textContent = 'Übung starten';
+    els.riffStop.hidden = true;
+    els.riffHint.textContent = `Spiele die ${riff.notes.length} Noten in der angezeigten Reihenfolge. ` +
+      'Die Erkennung prüft jeden Ton – das Timing wird nicht bewertet.';
+
+    const riffState = state.riff;
+    riffState.index = 0;
+    riffState.hits = 0;
+    riffState.misses = 0;
+    riffState.active = false;
+    riffState.needRelease = false;
+    riffState.candidateFrames = 0;
+    riffState.missLatched = false;
+    riffState.lastLevelDb = null;
+    riffState.lastHitPc = null;
+    riffState.graceUntil = 0;
+    riffState.feedbackUntil = 0;
+
+    els.riffPracticeCard.classList.remove('is-good', 'is-warn', 'pulse');
+    els.riffTarget.classList.remove('is-good');
+    els.riffDetected.textContent = 'Erkannt: –';
+    setRiffStatus('Bereit zum Üben', '');
+    renderRiffSequence();
+    updateRiffTarget();
+    updateRiffProgress();
+    updateRiffBoard();
+    updateRiffClickButton();
+  }
+
+  function clearRiffBeatDots() {
+    const dots = els.riffBeatDots.children;
+    for (let i = 0; i < dots.length; i += 1) dots[i].classList.remove('active');
+  }
+
+  function handleRiffBeat(beat) {
+    const dots = els.riffBeatDots.children;
+    for (let i = 0; i < dots.length; i += 1) {
+      dots[i].classList.toggle('active', i === beat);
+    }
+    window.clearTimeout(state.riff.beatTimeout);
+    state.riff.beatTimeout = window.setTimeout(clearRiffBeatDots, 150);
+  }
+
+  function handleRiffMetroState() {
+    updateRiffClickButton();
+    if (!riffMetronome.playing) {
+      window.clearTimeout(state.riff.beatTimeout);
+      clearRiffBeatDots();
+    }
+  }
+
+  async function toggleRiffClick() {
+    if (riffMetronome.playing) {
+      riffMetronome.stop();
+      return;
+    }
+    try {
+      riffMetronome.setBpm(currentRiff().bpm);
+      await riffMetronome.start();
+    } catch (error) {
+      toast('Klick konnte nicht starten.');
+    }
+  }
+
+  function pulseRiffCard() {
+    els.riffPracticeCard.classList.remove('pulse');
+    void els.riffPracticeCard.offsetWidth;
+    els.riffPracticeCard.classList.add('pulse');
+    window.setTimeout(() => els.riffPracticeCard.classList.remove('pulse'), 760);
+  }
+
+  async function previewRiff() {
+    if (state.riff.active) return;
+    const riff = currentRiff();
+    const beatSec = 60 / riff.bpm;
+    const noteSec = Math.max(0.12, beatSec * 0.46);
+    const gapSec = Math.max(0.01, beatSec * 0.04);
+
+    clearRiffPreviewTimers();
+    els.riffPreviewBtn.disabled = true;
+
+    let duration = 0;
+    try {
+      duration = await engine.playToneSequence(
+        riff.notes.map((note) => note.frequency),
+        { noteSec, gapSec }
+      );
+    } catch (error) {
+      els.riffPreviewBtn.disabled = false;
+      toast('Vorspielen war nicht möglich.');
+      return;
+    }
+
+    riff.notes.forEach((note, index) => {
+      const timer = window.setTimeout(() => {
+        els.riffSequence.querySelectorAll('.is-playing').forEach((element) => element.classList.remove('is-playing'));
+        els.riffFretboard.querySelectorAll('.is-playing').forEach((element) => element.classList.remove('is-playing'));
+        const chip = els.riffSequence.children[index];
+        if (chip) chip.classList.add('is-playing');
+        els.riffFretboard.querySelectorAll(`[data-pos="${note.string}-${note.fret}"]`)
+          .forEach((element) => element.classList.add('is-playing'));
+      }, Math.max(0, index * (noteSec + gapSec) * 1000));
+      state.riff.previewTimers.push(timer);
+    });
+
+    const endTimer = window.setTimeout(() => {
+      clearRiffPreviewTimers();
+      els.riffPreviewBtn.disabled = state.riff.active;
+    }, Math.max(250, duration * 1000 + 120));
+    state.riff.previewTimers.push(endTimer);
+  }
+
+  function startRiff() {
+    if (!state.running) {
+      toast('Bitte zuerst das Mikrofon aktivieren.');
+      return;
+    }
+    if (!state.riff.notes.length) initRiffView();
+
+    engine.stopToneSequence();
+    clearRiffPreviewTimers();
+
+    const riff = state.riff;
+    riff.active = true;
+    riff.index = 0;
+    riff.hits = 0;
+    riff.misses = 0;
+    riff.needRelease = false;
+    riff.candidateFrames = 0;
+    riff.missLatched = false;
+    riff.lastLevelDb = null;
+    riff.lastHitPc = null;
+    riff.graceUntil = 0;
+    riff.feedbackUntil = 0;
+
+    setRiffControlsDisabled(true);
+    els.riffStart.hidden = true;
+    els.riffStop.hidden = false;
+    els.riffPracticeCard.classList.remove('is-good', 'is-warn');
+    els.riffTarget.classList.remove('is-good');
+
+    const target = riff.notes[0];
+    els.riffTarget.textContent = target.name;
+    els.riffTargetLabel.textContent = riffStepLabel(0);
+    els.riffPosition.textContent = `${target.label} · ${stringDescription(target)}`;
+    els.riffDetected.textContent = 'Erkannt: –';
+    setRiffStatus(`Spiele ${target.label} …`, 'listening');
+    els.riffHint.textContent = 'Jeden Ton einzeln anschlagen. Bei gleichen Tönen kurz abdämpfen, ' +
+      'damit der nächste Anschlag erkannt wird.';
+    updateRiffProgress();
+    renderRiffSequence();
+    updateRiffBoard();
+
+    engine.setMode('scale');
+
+    if (els.riffLive) {
+      els.riffLive.textContent = `Übung gestartet. Erste Note: ${target.label}, ${stringDescription(target)}.`;
+    }
+  }
+
+  function stopRiff() {
+    const riff = state.riff;
+    if (!riff.notes.length) riff.notes = currentRiff().notes;
+    engine.stopToneSequence();
+    clearRiffPreviewTimers();
+    riffMetronome.stop();
+
+    riff.active = false;
+    riff.index = 0;
+    riff.hits = 0;
+    riff.misses = 0;
+    riff.needRelease = false;
+    riff.candidateFrames = 0;
+    riff.missLatched = false;
+    riff.lastLevelDb = null;
+    riff.lastHitPc = null;
+    riff.graceUntil = 0;
+    riff.feedbackUntil = 0;
+
+    setRiffControlsDisabled(false);
+    els.riffStart.hidden = false;
+    els.riffStart.textContent = 'Übung starten';
+    els.riffStop.hidden = true;
+    els.riffPracticeCard.classList.remove('is-good', 'is-warn');
+    els.riffTarget.classList.remove('is-good');
+    els.riffDetected.textContent = 'Erkannt: –';
+    setRiffStatus('Bereit zum Üben', '');
+    els.riffHint.textContent = 'Wähle ein Riff und starte die Übung. Spiele jeden Ton einzeln in der angezeigten Reihenfolge.';
+
+    renderRiffSequence();
+    updateRiffTarget();
+    updateRiffProgress();
+    updateRiffBoard();
+    updateRiffClickButton();
+  }
+
+  function finishRiff() {
+    const riff = state.riff;
+    riff.active = false;
+    riff.candidateFrames = 0;
+    riff.needRelease = false;
+
+    setRiffControlsDisabled(false);
+    els.riffStart.hidden = false;
+    els.riffStart.textContent = 'Nochmal starten';
+    els.riffStop.hidden = true;
+    els.riffTarget.textContent = '✓';
+    els.riffTarget.classList.add('is-good');
+    els.riffTargetLabel.textContent = 'Ergebnis';
+    els.riffDetected.textContent = 'Erkannt: ✓';
+    setRiffStatus('Riff geschafft ✓', 'good');
+    els.riffHint.textContent = `${riff.notes.length} Noten geschafft · ${riff.hits} richtig` +
+      (riff.misses > 0 ? ` · ${riff.misses} Fehler` : '') + '.';
+    els.riffPracticeCard.classList.add('is-good');
+    pulseRiffCard();
+    updateRiffProgress();
+    renderRiffSequence();
+    updateRiffBoard();
+
+    if (navigator.vibrate) navigator.vibrate([40, 50, 80]);
+    if (els.riffLive) {
+      els.riffLive.textContent = `Riff geschafft. ${riff.hits} von ${riff.notes.length} Noten richtig.`;
+    }
+  }
+
+  function acceptRiffHit(target, now) {
+    const riff = state.riff;
+    riff.hits += 1;
+    riff.index += 1;
+    riff.candidateFrames = 0;
+    riff.needRelease = true;
+    riff.lastHitPc = target.pc;
+    riff.graceUntil = now + 250;
+    riff.missLatched = false;
+    riff.feedbackUntil = now + 700;
+    els.riffPracticeCard.classList.remove('is-warn');
+    els.riffHint.textContent = `${target.label} richtig ✓`;
+    pulseRiffCard();
+    if (navigator.vibrate) navigator.vibrate(20);
+
+    if (riff.index >= riff.notes.length) {
+      finishRiff();
+      return;
+    }
+
+    const next = riff.notes[riff.index];
+    updateRiffProgress();
+    renderRiffSequence();
+    updateRiffBoard();
+    updateRiffTarget();
+    els.riffTarget.classList.remove('is-good');
+    setRiffStatus(`Spiele ${next.label} …`, 'listening');
+    if (next.section !== target.section) {
+      els.riffHint.textContent = `${target.section} geschafft ✓ Weiter mit ${next.section}.`;
+    }
+    if (els.riffLive) {
+      els.riffLive.textContent = `${target.label} richtig. Weiter mit ${next.label}, ${stringDescription(next)}.`;
+    }
+  }
+
+  function handleRiffPitch(update) {
+    const riff = state.riff;
+    if (!riff.active) return;
+    const target = riff.notes[riff.index];
+    if (!target) return;
+
+    const now = performance.now();
+    const previousLevel = riff.lastLevelDb;
+    riff.lastLevelDb = update.levelDb;
+    const levelRise = previousLevel !== null && update.levelDb > -48 && update.levelDb - previousLevel > 5;
+    const levelDrop = previousLevel !== null && previousLevel - update.levelDb > 8;
+    const released = update.silent || update.levelDb < -55 ||
+      (!update.pitch && (update.levelDb < -45 || levelDrop));
+    const note = update.pitch ? frequencyToNote(update.pitch.frequency) : null;
+    const pitchClass = note ? ((note.midi % 12) + 12) % 12 : null;
+
+    if (riff.needRelease) {
+      if (released || levelRise) {
+        riff.needRelease = false;
+        riff.lastHitPc = null;
+      } else if (note && pitchClass !== riff.lastHitPc) {
+        riff.needRelease = false;
+        riff.lastHitPc = null;
+      }
+    }
+
+    if (!note) {
+      riff.candidateFrames = 0;
+      if (released) {
+        riff.missLatched = false;
+        els.riffPracticeCard.classList.remove('is-warn');
+      }
+      els.riffDetected.textContent = released ? 'Erkannt: –' : 'Erkannt: ?';
+      if (now > riff.feedbackUntil) {
+        setRiffStatus(`Spiele ${target.label} …`, 'listening');
+      }
+      return;
+    }
+
+    // Der gerade gewertete Ton klingt oft noch nach und darf nicht sofort als
+    // Fehler für den nächsten Zielton zählen.
+    if (riff.lastHitPc !== null && pitchClass === riff.lastHitPc) {
+      riff.candidateFrames = 0;
+      return;
+    }
+
+    els.riffDetected.textContent = `Erkannt: ${note.name}`;
+
+    if (pitchClass === target.pc) {
+      riff.missLatched = false;
+      els.riffPracticeCard.classList.remove('is-warn');
+      if (!riff.needRelease) {
+        riff.candidateFrames += 1;
+        if (riff.candidateFrames >= 2) acceptRiffHit(target, now);
+      }
+      return;
+    }
+
+    riff.candidateFrames = 0;
+    if (!riff.missLatched && update.levelDb > -50 && now > riff.graceUntil) {
+      riff.missLatched = true;
+      riff.misses += 1;
+      els.riffPracticeCard.classList.add('is-warn');
+      setRiffStatus('Ton passt nicht', 'warn');
+      els.riffHint.textContent = `Erwartet ${target.label} – gehört ${note.name}. Nochmal versuchen.`;
+      riff.feedbackUntil = now + 900;
     }
   }
 
@@ -1497,6 +2011,7 @@
     state.running = false;
     stopPractice();
     stopSong();
+    stopRiff();
     metronome.stop();
     els.mainApp.hidden = true;
     els.startScreen.hidden = false;
@@ -1722,6 +2237,7 @@
     els.modeTrainerBtn.addEventListener('click', () => applyMode('trainer'));
     els.modeTunerBtn.addEventListener('click', () => applyMode('tuner'));
     els.modePentatonicBtn.addEventListener('click', () => applyMode('pentatonic'));
+    els.modeRiffBtn.addEventListener('click', () => applyMode('riff'));
     els.modeSongBtn.addEventListener('click', () => applyMode('song'));
     els.modeHelpBtn.addEventListener('click', () => applyMode('help'));
     els.refToneBtn.addEventListener('click', playReferenceTone);
@@ -1742,6 +2258,20 @@
       stopSong();
       toast('Song gestoppt');
     });
+
+    els.riffSelect.addEventListener('change', (event) => {
+      stopRiff();
+      state.riff.riffId = event.target.value;
+      initRiffView();
+      persistPrefs();
+    });
+    els.riffPreviewBtn.addEventListener('click', previewRiff);
+    els.riffStart.addEventListener('click', startRiff);
+    els.riffStop.addEventListener('click', () => {
+      stopRiff();
+      toast('Riff-Übung gestoppt');
+    });
+    els.riffClickBtn.addEventListener('click', toggleRiffClick);
 
     els.scaleRoot.addEventListener('change', (event) => {
       state.scale.rootPc = Number(event.target.value);
@@ -1791,12 +2321,14 @@
       if (document.hidden) {
         metronome.stop();
         stopSong();
+        stopRiff();
       }
     });
 
     window.addEventListener('pagehide', () => {
       metronome.stop();
       stopSong();
+      stopRiff();
       engine.stopStream();
     });
 
@@ -1837,6 +2369,8 @@
     stopPractice();
     buildSongOptions();
     initSongView();
+    buildRiffOptions();
+    initRiffView();
     renderStats();
     initAbout();
     updateTunerTarget();

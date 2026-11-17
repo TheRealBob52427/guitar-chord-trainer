@@ -3,8 +3,8 @@
 Progressive Web App für E-Gitarren-Anfänger: zeigt Griffbrett-Diagramme für
 **G, C, Cadd9, Am, Em7, Dsus4, A7sus4, E7 und F**, bewertet die gespielten Akkorde in Echtzeit über
 Mikrofon oder USB-Gitarreninterface (z. B. Rocksmith USB Guitar Adapter), enthält
-ein interaktives Stimmgerät, einen Pentatonik-Trainer und einen Song-Modus mit
-automatischer Akkordprüfung.
+ein interaktives Stimmgerät, einen Pentatonik-Trainer, einen Riff-Modus für
+Einzelnoten und einen Song-Modus mit automatischer Akkordprüfung.
 
 Reines Vanilla-JS – kein Framework, kein Build-Schritt, keine externen Requests.
 Das Audio wird ausschließlich lokal im Browser analysiert. Trefferstatistiken
@@ -65,6 +65,10 @@ Betrieb bleibt das Image unverändert.
   à fünf Töne**, wählbare Wiederholungen pro Ton, optionale **absteigende
   Tonfolge (rückwärts)**, **Vorspielen der gewählten Pentatonik** und
   automatische Kontrolle der gespielten Töne.
+- **Riff-/Einzelnoten-Modus** mit automatischer Tonprüfung: **Seven Nation
+  Army** (The White Stripes) und **Californication** (Red Hot Chili Peppers)
+  als Einzelnoten-Folgen, Griffbrett mit Positionsmarkierung (5–12 Bünde je
+  nach Lage), Vorspielen im Originaltempo und zuschaltbarem Klick.
 - **Hilfe-Modus**, der die verwendeten Griffbrett-Notationen erklärt:
   Akkord-Diagramme, Pentatonik-Griffbrett, Stimmgerät und Übungsfolge.
 - **Song-Modus** mit Akkord-Führung, Klick und automatischer Prüfung:
@@ -101,13 +105,16 @@ Betrieb bleibt das Image unverändert.
    rückwärts“ folgt danach eine absteigende Tonfolge. Die App erwartet die
    Töne in der angezeigten Reihenfolge und quittiert jeden richtigen Anschlag
    automatisch.
-5. Im Tab **Songs** ein Lied wählen, das Tempo einstellen und „Mitspielen
+5. Im Tab **Riffs** ein Riff wählen, optional „Klick starten“ und mit
+   „Übung starten“ die Noten in der angezeigten Reihenfolge spielen. Die App
+   prüft jeden Ton und zeigt Note, Saite und Bund an.
+6. Im Tab **Songs** ein Lied wählen, das Tempo einstellen und „Mitspielen
    starten“ antippen. Die App zeigt den aktuellen und nächsten Akkord, spielt
    den Klick und prüft die gespielten Akkorde.
-6. Im Tab **Hilfe** erklärt die App alle verwendeten Griffbrett-Notationen:
+7. Im Tab **Hilfe** erklärt die App alle verwendeten Griffbrett-Notationen:
    offene und gedämpfte Saiten, Fingernummern, Bundnummern, Grundton-Markierung
    und Zielton-Hervorhebung.
-7. Im Settings-Sheet (Regler-Symbol) Audio-Eingang wählen, die Statistik
+8. Im Settings-Sheet (Regler-Symbol) Audio-Eingang wählen, die Statistik
    einsehen, als CSV exportieren oder zurücksetzen.
 
 ## Projektstruktur
@@ -123,6 +130,7 @@ Betrieb bleibt das Image unverändert.
 │   │   ├── pitch.js        # YIN-Pitch-Erkennung für das Stimmgerät
 │   │   ├── tuning.js       # Saitenfrequenzen, Cent-Berechnung, Formatierung
 │   │   ├── pentatonic.js   # Skalen, Übungsfolgen und 12-Bund-Griffbrett
+│   │   ├── riffs.js        # Riff-Bibliothek für Einzelnoten + Griffbrett-SVG
 │   │   ├── songs.js        # Song-Bibliothek und Akkord-Timing
 │   │   ├── stats.js        # Statistik-Persistenz, Migration, CSV-Export
 │   │   ├── prefs.js        # UI-Einstellungen persistent speichern
@@ -222,14 +230,16 @@ Einstellungen im Browser:
   "tuningStringIndex": 1,
   "tunerAuto": true,
   "scale": { "rootPc": 4, "type": "major", "repeats": 2, "backward": true },
+  "riffId": "californication",
   "deviceId": "..."
 }
 ```
 
-- **Modus** (`trainer`, `tuner`, `pentatonic`, `song`, `help`)
+- **Modus** (`trainer`, `tuner`, `pentatonic`, `riff`, `song`, `help`)
 - **BPM** des Metronoms (40–180)
 - **Pentatonik**: Grundton, Moll/Dur, Wiederholungen pro Ton (1–4) und
   Rückwärts-Option
+- **Riff**: zuletzt gewähltes Riff im Einzelnoten-Modus
 - **Stimmgerät**: Zielsaite und Auto-Erkennung
 - **Audio-Gerät** (Device-ID; bei nicht mehr vorhandenem Gerät wird auf den
   Standardeingang zurückgefallen)
@@ -298,6 +308,34 @@ Die Statistik liegt unter `guitarTrainer.stats.v2` in `localStorage`:
   erwarteten und den gehörten Ton; der Fortschritt bleibt stehen, bis der
   richtige Ton gespielt wird. Die Übung endet mit Trefferquote und Fehlerzahl.
 
+## Riff-/Einzelnoten-Modus
+
+Der Tab **Riffs** übt einzelne Noten statt Akkorde. Jedes Riff ist eine
+geordnete Folge von Positionen (Saite + Bund); die App erwartet die Töne in
+dieser Reihenfolge und prüft sie mit derselben YIN-Pitch-Erkennung wie das
+Stimmgerät. Das Timing wird nicht bewertet – der Klick ist eine optionale
+Hilfe, um im Tempo des Originals zu bleiben.
+
+- **Bibliothek**: `app/js/riffs.js`, aktuell:
+  - **Seven Nation Army** (The White Stripes, 124 BPM): sieben Noten
+    `E2 E2 G2 E2 D3 C3 B2` auf der tiefen E-Saite (`0–0–3–0–10–8–7`). Auf der
+    Aufnahme klingt das Riff eine Oktave tiefer; diese Lage trifft dieselben
+    Töne ohne Pitch-Shifter.
+  - **Californication** (Red Hot Chili Peppers, 96 BPM): das Am/F-Arpeggio aus
+    Intro und Refrain, 32 Achtelnoten über vier Takte
+    (`A2 E3 A3 C4 E4 C4 A3 E3` / `C3 F3 A3 C4 F4 C4 A3 F3`, zweimal).
+- **Anzeige**: Note mit Oktave, Saite und Bund; Sequenz-Chips mit
+  Positionsangabe (`E0` = tiefe E-Saite offen, `A3` = A-Saite 3. Bund);
+  Griffbrett mit so vielen Bünden wie nötig (mindestens 5), Grundton- und
+  Zielton-Markierung.
+- **Prüfung**: Zwei aufeinanderfolgende Frames mit passender Pitch-Class zählen
+  als Treffer. Gleiche Töne in Folge brauchen ein kurzes Abdämpfen
+  (250 ms Gnadenfrist und Hysterese wie im Pentatonik-Trainer). Falsche Töne
+  werden als Fehler gezählt, blockieren den Fortschritt aber nicht.
+- **Vorspielen**: „Riff anhören“ spielt die Folge im Tempo des Originals und
+  hebt dabei den jeweils klingenden Ton hervor.
+- **Inhalte**: nur Notenpositionen – keine Aufnahmen, Lyrics oder Melodietexte.
+
 ## Song-Modus
 
 Der Song-Modus führt durch einen Akkord-Loop und prüft die gespielten Akkorde
@@ -354,6 +392,7 @@ mit Obertönen, führen eine echte FFT aus und prüfen unter anderem:
 - Cent-Genauigkeit, Oktavfehler-Stabilität und Stille,
 - Hysterese und Akkorddaten,
 - Pentatonik-Intervalle, Übungsfolgen, Griffbrettpositionen und SVG,
+- Riff-Bibliothek, Notenpositionen, Frequenzen und Griffbrett-SVG,
 - Song-Bibliothek, alle Song-Loops und die neuen Griffe,
 - Einstellungs-Persistenz inkl. Validierung und Grenzwerten,
 - Statistik-Migration, Persistenz, CSV-Inhalt und Reset,
@@ -376,7 +415,7 @@ auch ohne TLS. Der Service Worker wird ebenfalls auf localhost registriert.
 
 - **Cache aktualisieren**: Nach Änderungen an Dateien in `app/` die
   `CACHE_VERSION` in `app/sw.js` erhöhen **und** die Versions-Query in
-  `app/index.html` sowie in der Precache-Liste anpassen (z. B. `?v=1.5.0`).
+  `app/index.html` sowie in der Precache-Liste anpassen (z. B. `?v=1.6.0`).
   So können installierte Clients nicht neues HTML mit altem JavaScript
   mischen.
 - **Icons neu generieren**: `python3 tools/generate_icons.py` (benötigt Pillow).
@@ -410,14 +449,18 @@ auch ohne TLS. Der Service Worker wird ebenfalls auf localhost registriert.
 - **USB-Adapter fehlt**: Adapter anschließen, Settings öffnen, „Geräte neu
   laden“. Bei Linux ggf. `arecord -l` prüfen.
 - **Tabs reagieren nicht / alte Version**: Im Settings-Sheet muss **Version
-  1.5.0** stehen. Nach einem Image-Update `docker compose build --no-cache &&
+  1.6.0** stehen. Nach einem Image-Update `docker compose build --no-cache &&
   docker compose up -d` ausführen, die PWA schließen und neu öffnen. HTML und
-  JavaScript sind mit `?v=1.5.0` versioniert, damit kein altes JS aus dem
+  JavaScript sind mit `?v=1.6.0` versioniert, damit kein altes JS aus dem
   Browser- oder Service-Worker-Cache geladen wird.
 - **Pentatonik-Übung zählt nicht weiter**: Töne einzeln und mit kurzer Pause
   spielen; bei wiederholtem gleichem Ton kurz abdämpfen. Die App prüft die
   Pitch-Class, nicht die Oktave. Bei zu leiser Gitarre Pegel erhöhen oder
   Eingang prüfen.
+- **Riff-Übung zählt nicht weiter**: Nur eine Saite anschlagen und den Ton
+  ausklingen lassen. Bei zwei gleichen Noten hintereinander (Seven Nation
+  Army: `E2 E2`) kurz abdämpfen – sonst erkennt die App keinen neuen Anschlag.
+  Das Tempo wird nicht geprüft; der Klick ist nur eine Hilfe.
 - **Song-Modus erkennt keinen Akkord**: Wonderwall als Übungsversion **ohne
   Capo** mit den angezeigten offenen Griffen spielen; mit Capo 2 verschieben
   sich die klingenden Töne und passen nicht zu den Templates. Akkord sauber

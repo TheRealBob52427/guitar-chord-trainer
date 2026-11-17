@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#0f0f1e">
-  <meta name="description" content="E-Gitarren-Akkorde lernen, Gitarre stimmen, Pentatoniken üben und bekannte Songs wie Wonderwall im eigenen Tempo nachspielen.">
+  <meta name="description" content="E-Gitarren-Akkorde lernen, Gitarre stimmen, Pentatoniken und Riffs wie Seven Nation Army üben und bekannte Songs wie Wonderwall im eigenen Tempo nachspielen.">
   <meta name="color-scheme" content="dark">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -13,20 +13,21 @@
   <link rel="manifest" href="manifest.json">
   <link rel="icon" href="icons/favicon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="icons/icon-180.png">
-  <link rel="stylesheet" href="css/styles.css?v=1.5.0">
-  <script src="js/chords.js?v=1.5.0" defer></script>
-  <script src="js/detection.js?v=1.5.0" defer></script>
-  <script src="js/pitch.js?v=1.5.0" defer></script>
-  <script src="js/tuning.js?v=1.5.0" defer></script>
-  <script src="js/stats.js?v=1.5.0" defer></script>
-  <script src="js/prefs.js?v=1.5.0" defer></script>
-  <script src="js/pentatonic.js?v=1.5.0" defer></script>
-  <script src="js/songs.js?v=1.5.0" defer></script>
-  <script src="js/about.js?v=1.5.0" defer></script>
-  <script src="js/fretboard.js?v=1.5.0" defer></script>
-  <script src="js/metronome.js?v=1.5.0" defer></script>
-  <script src="js/audio.js?v=1.5.0" defer></script>
-  <script src="js/app.js?v=1.5.0" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=1.6.0">
+  <script src="js/chords.js?v=1.6.0" defer></script>
+  <script src="js/detection.js?v=1.6.0" defer></script>
+  <script src="js/pitch.js?v=1.6.0" defer></script>
+  <script src="js/tuning.js?v=1.6.0" defer></script>
+  <script src="js/stats.js?v=1.6.0" defer></script>
+  <script src="js/prefs.js?v=1.6.0" defer></script>
+  <script src="js/pentatonic.js?v=1.6.0" defer></script>
+  <script src="js/riffs.js?v=1.6.0" defer></script>
+  <script src="js/songs.js?v=1.6.0" defer></script>
+  <script src="js/about.js?v=1.6.0" defer></script>
+  <script src="js/fretboard.js?v=1.6.0" defer></script>
+  <script src="js/metronome.js?v=1.6.0" defer></script>
+  <script src="js/audio.js?v=1.6.0" defer></script>
+  <script src="js/app.js?v=1.6.0" defer></script>
 </head>
 <body>
   <header class="app-header">
@@ -58,7 +59,7 @@
       <p class="start-copy">
         Der Trainer hört dir zu, erkennt <strong>G</strong>, <strong>C</strong>, <strong>Am</strong>,
         <strong>E7</strong>, <strong>F</strong>, <strong>Cadd9</strong>, <strong>Em7</strong>,
-        <strong>Dsus4</strong> und <strong>A7sus4</strong> – stimmt jede Saite, prüft Pentatonik und begleitet dich durch Songs.
+        <strong>Dsus4</strong> und <strong>A7sus4</strong> – stimmt jede Saite, prüft Pentatonik und Einzelnoten-Riffs und begleitet dich durch Songs.
       </p>
       <button id="startBtn" class="btn btn-primary btn-lg" type="button">
         <span aria-hidden="true">🎤</span> Mikrofon aktivieren
@@ -80,6 +81,7 @@
         <button id="modeTrainerBtn" class="mode-btn active" type="button" aria-pressed="true">Trainer</button>
         <button id="modeTunerBtn" class="mode-btn" type="button" aria-pressed="false">Stimmen</button>
         <button id="modePentatonicBtn" class="mode-btn" type="button" aria-pressed="false">Pentatonik</button>
+        <button id="modeRiffBtn" class="mode-btn" type="button" aria-pressed="false">Riffs</button>
         <button id="modeSongBtn" class="mode-btn" type="button" aria-pressed="false">Songs</button>
         <button id="modeHelpBtn" class="mode-btn" type="button" aria-pressed="false">Hilfe</button>
       </nav>
@@ -278,6 +280,74 @@
         </section>
       </div>
 
+      <div id="riffView" hidden>
+        <section class="card scale-card" aria-labelledby="riffHeading">
+          <div class="card-head">
+            <div>
+              <p class="eyebrow">Einzelnoten</p>
+              <h2 id="riffHeading">Seven Nation Army</h2>
+            </div>
+            <span id="riffMeta" class="pill">The White Stripes · 124 BPM</span>
+          </div>
+
+          <label class="field-label" for="riffSelect">Riff wählen</label>
+          <select id="riffSelect" class="select"></select>
+          <p id="riffInfo" class="chord-tip riff-info"></p>
+
+          <div id="riffFretboard" class="scale-fretboard-wrap"></div>
+          <div class="scale-legend">
+            <span><i class="legend-dot is-root"></i>Grundton</span>
+            <span><i class="legend-dot"></i>Riff-Ton</span>
+            <span><i class="legend-dot is-target"></i>Zielton</span>
+          </div>
+        </section>
+
+        <section id="riffPracticeCard" class="card practice-card" aria-labelledby="riffStatus">
+          <div class="card-head card-head-compact">
+            <div class="status-block">
+              <span id="riffDot" class="status-dot" aria-hidden="true"></span>
+              <div>
+                <p class="eyebrow">Übung</p>
+                <h2 id="riffStatus">Bereit zum Üben</h2>
+              </div>
+            </div>
+            <span id="riffProgressLabel" class="pill pill-score">0 / 7</span>
+          </div>
+
+          <div class="practice-readout">
+            <span id="riffTargetLabel" class="practice-target-label">Note 1 / 7 · Riff</span>
+            <span id="riffTarget" class="practice-target">E</span>
+            <div class="practice-meta">
+              <span id="riffDetected">Erkannt: –</span>
+              <span id="riffPosition">tiefe E-Saite · offen</span>
+            </div>
+          </div>
+
+          <div id="riffMeter" class="meter practice-meter" role="progressbar"
+               aria-label="Übungsfortschritt" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+            <div id="riffProgressFill" class="meter-fill"></div>
+          </div>
+
+          <p class="practice-sequence-title">Abfolge</p>
+          <div id="riffSequence" class="practice-sequence riff-sequence" aria-label="Rifffolge"></div>
+
+          <div id="riffBeatDots" class="beat-row" aria-hidden="true" hidden>
+            <span class="beat-dot beat-accent"></span>
+            <span class="beat-dot"></span>
+            <span class="beat-dot"></span>
+            <span class="beat-dot"></span>
+          </div>
+
+          <button id="riffPreviewBtn" class="btn btn-secondary btn-full" type="button">Riff anhören</button>
+          <button id="riffStart" class="btn btn-primary btn-full" type="button">Übung starten</button>
+          <button id="riffStop" class="btn btn-secondary btn-full" type="button" hidden>Übung stoppen</button>
+          <button id="riffClickBtn" class="btn btn-secondary btn-full" type="button" aria-pressed="false">Klick starten · 124 BPM</button>
+          <p id="riffHint" class="chord-tip practice-hint">
+            Wähle ein Riff und starte die Übung. Spiele jeden Ton einzeln in der angezeigten Reihenfolge.
+          </p>
+        </section>
+      </div>
+
       <div id="songView" hidden>
         <section class="card song-card" aria-labelledby="songHeading">
           <div class="card-head">
@@ -454,7 +524,7 @@
 
       <div class="about-block">
         <p class="fineprint version">
-          Version <span id="appVersion">1.5.0</span> · Läuft vollständig offline
+          Version <span id="appVersion">1.6.0</span> · Läuft vollständig offline
         </p>
         <a id="repoLink" class="btn btn-secondary btn-full"
            href="https://github.com/TheRealBob52427/guitar-chord-trainer"
@@ -471,5 +541,6 @@
   <p id="tunerLive" class="sr-only" aria-live="polite" aria-atomic="true"></p>
   <p id="practiceLive" class="sr-only" aria-live="polite" aria-atomic="true"></p>
   <p id="songLive" class="sr-only" aria-live="polite" aria-atomic="true"></p>
+  <p id="riffLive" class="sr-only" aria-live="polite" aria-atomic="true"></p>
 </body>
 </html>
