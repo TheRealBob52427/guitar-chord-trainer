@@ -1,9 +1,10 @@
 # Gitarren-Akkord-Trainer
 
 Progressive Web App für E-Gitarren-Anfänger: zeigt Griffbrett-Diagramme für
-**G, C, Cadd9, Am, Em7, Dsus4, A7sus4, E7 und F**, bewertet die gespielten Akkorde in Echtzeit über
-Mikrofon oder USB-Gitarreninterface (z. B. Rocksmith USB Guitar Adapter), enthält
-ein interaktives Stimmgerät, einen Pentatonik-Trainer, einen Riff-Modus für
+**Em, Am, G, C, Cadd9, Em7, Dsus4, A7sus4, E7 und F**, bewertet die gespielten
+Akkorde in Echtzeit über Mikrofon oder USB-Gitarreninterface (z. B. Rocksmith
+USB Guitar Adapter), enthält ein interaktives Stimmgerät, einen
+Pentatonik-Trainer mit fünf Pattern, das CAGED-System, einen Riff-Modus für
 Einzelnoten und einen Song-Modus mit automatischer Akkordprüfung.
 
 Reines Vanilla-JS – kein Framework, kein Build-Schritt, keine externen Requests.
@@ -54,17 +55,27 @@ Betrieb bleibt das Image unverändert.
 
 - **Griffbrett-Diagramme** als SVG: 5 Bünde, 6 Saiten (E–A–D–G–B–E),
   Fingernummern, offene (○) und gedämpfte (×) Saiten, Bundnummern, dünner
-  werdende Saiten.
+  werdende Saiten. Höhere Lagen (CAGED) werden mit absoluten Bundzahlen und
+  ohne Sattel gezeichnet.
+- **Grundakkorde Em und Am** als offene Voicings, dazu G, C, Cadd9, Em7,
+  Dsus4, A7sus4, E7 und F. Jeder Akkord lässt sich mit einem Klick als
+  E-Gitarren-Strum anhören.
+- **CAGED-System** im Trainer: die fünf beweglichen Dur-Formen C, A, G, E und
+  D für jeden Grundton, mit Grundton-Lage und Griffbrett-Diagramm.
 - **Echtzeit-Erkennung** per Web Audio API mit Chromagramm und
   Cosine-Similarity, inklusive Stille-Erkennung, Glättung und Hysterese.
 - **Stimm-Modus** für E2, A2, D3, G3, B3 und E4: YIN-Pitch-Erkennung,
   Cent-Zeiger (±50 Cent), In-Tune-Anzeige innerhalb ±5 Cent, Saitenauswahl,
   **Auto-Erkennung der angeschlagenen Saite** und Referenzton.
-- **Pentatonik-Trainer** für alle zwölf Grundtöne in Moll und Dur:
-  12-Bund-Griffbrett mit Grundton-Hervorhebung, **fünf vollständige Tonfolgen
-  à fünf Töne**, wählbare Wiederholungen pro Ton, optionale **absteigende
-  Tonfolge (rückwärts)**, **Vorspielen der gewählten Pentatonik** und
-  automatische Kontrolle der gespielten Töne.
+- **Pentatonik-Trainer** für alle zwölf Grundtöne in Moll und Dur: fünf
+  Pattern pro Skala, **nur das ausgewählte Pattern** wird auf dem Griffbrett
+  angezeigt, **zwölf Töne pro Tonfolge**, wählbare Wiederholungen pro Ton,
+  optionale **absteigende Tonfolge (rückwärts)**, **Vorspielen des Pattern**
+  und automatische Kontrolle der gespielten Töne.
+- **Gitarrenklang** in allen Modi: gezupfte Saiten werden per
+  Karplus-Strong-Synthese mit Anschlagskammfilter, Röhren-Sättigung und
+  Cabinet-Filter erzeugt – Referenztöne, Skalen, Riffs und Akkorde klingen
+  nach E-Gitarre statt nach Sinuston.
 - **Riff-/Einzelnoten-Modus** mit automatischer Tonprüfung: **Seven Nation
   Army** (The White Stripes) und **Californication** (Red Hot Chili Peppers)
   als Einzelnoten-Folgen, Griffbrett mit Positionsmarkierung (5–12 Bünde je
@@ -99,12 +110,12 @@ Betrieb bleibt das Image unverändert.
 3. Im Tab **Stimmen** die gewünschte Saite antippen oder **Auto-Erkennung**
    aktivieren, die Saite einzeln anschlagen und am Wirbel drehen, bis der
    Zeiger grün in der Mitte steht. „Referenzton …“ spielt die Sollfrequenz vor.
-4. Im Tab **Pentatonik** Grundton und Tongeschlecht wählen, Wiederholungen pro
-   Ton einstellen und mit „Pentatonik anhören“ die Skala vorab anhören.
-   „Übung starten“ beginnt **fünf vollständige Tonfolgen**; mit „Anschließend
-   rückwärts“ folgt danach eine absteigende Tonfolge. Die App erwartet die
-   Töne in der angezeigten Reihenfolge und quittiert jeden richtigen Anschlag
-   automatisch.
+4. Im Tab **Pentatonik** Grundton, Tongeschlecht und eines der fünf Pattern
+   wählen. Das Griffbrett zeigt nur die Töne dieser Lage; „Pattern anhören“
+   spielt sie vor. „Übung starten“ beginnt **fünf Tonfolgen à zwölf Töne**;
+   mit „Anschließend rückwärts“ folgt danach eine absteigende Tonfolge. Die
+   App erwartet die Töne in der angezeigten Reihenfolge und quittiert jeden
+   richtigen Anschlag automatisch.
 5. Im Tab **Riffs** ein Riff wählen, optional „Klick starten“ und mit
    „Übung starten“ die Noten in der angezeigten Reihenfolge spielen. Die App
    prüft jeden Ton und zeigt Note, Saite und Bund an.
@@ -129,7 +140,9 @@ Betrieb bleibt das Image unverändert.
 │   │   ├── detection.js    # Chromagramm, Cosine-Similarity, Hysterese
 │   │   ├── pitch.js        # YIN-Pitch-Erkennung für das Stimmgerät
 │   │   ├── tuning.js       # Saitenfrequenzen, Cent-Berechnung, Formatierung
-│   │   ├── pentatonic.js   # Skalen, Übungsfolgen und 12-Bund-Griffbrett
+│   │   ├── pentatonic.js   # Skalen, fünf Pattern, Übungsfolgen, Griffbrett-SVG
+│   │   ├── caged.js        # CAGED-Formen und Transposition
+│   │   ├── guitar-synth.js # Karplus-Strong-E-Gitarre als AudioBuffer
 │   │   ├── riffs.js        # Riff-Bibliothek für Einzelnoten + Griffbrett-SVG
 │   │   ├── songs.js        # Song-Bibliothek und Akkord-Timing
 │   │   ├── stats.js        # Statistik-Persistenz, Migration, CSV-Export
@@ -197,7 +210,7 @@ aber ab und analysiert den Zeitbereich:
 1. **Fenster**: die letzten **4096 Samples** (~85 ms bei 48 kHz) aus dem
    `AnalyserNode`. Das reicht für mehrere Perioden der tiefen E-Saite.
 2. **Stille-Erkennung**: derselbe RMS-Gate wie im Trainer (−55 dBFS).
-3. **YIN**: Für Verzögerungen von **60–500 Hz** wird die Differenzfunktion
+3. **YIN**: Für Verzögerungen von **60–1400 Hz** wird die Differenzfunktion
    berechnet und kumulativ normiert (CMND). Das erste Minimum unter **0.18**
    ist die Periodendauer; eine parabolische Interpolation um das Minimum
    liefert die Frequenz auf Cent-Genauigkeit. Die Konfidenz ist
@@ -279,22 +292,27 @@ Die Statistik liegt unter `guitarTrainer.stats.v2` in `localStorage`:
 ## Pentatonik-Trainer
 
 - **Skalen**: Moll-Pentatonik `[0, 3, 5, 7, 10]` und Dur-Pentatonik
-  `[0, 2, 4, 7, 9]`, transponierbar auf alle zwölf Grundtöne. Das Griffbrett
-  zeigt alle Skalentöne über zwölf Bünde; Grundtöne sind rot markiert.
-- **Tonfolgen**: Eine Übung besteht immer aus **fünf vollständigen
-  Tonfolgen**. Jede Tonfolge spielt alle fünf Skalenstufen von der tiefsten
-  zur höchsten (`1–2–3–4–5`). Jeder Ton wird `Wiederholungen pro Ton`-mal
-  erwartet: bei 1× also `A C D E G`, bei 2× `A A C C D D E E G G` pro
-  Tonfolge. Die Anzeige nennt die aktuelle Tonfolge (`Tonfolge 2 / 5`) und
-  zeigt die Chips der laufenden und der nächsten Tonfolge.
+  `[0, 2, 4, 7, 9]`, transponierbar auf alle zwölf Grundtöne.
+- **Fünf Pattern**: Die A-Moll-Pentatonik ist in die fünf üblichen Lagen
+  aufgeteilt (Pattern 1 ab dem 5. Bund, Pattern 5 in der offenen Lage). Jedes
+  Pattern hat zwei Töne pro Saite, insgesamt zwölf Töne. Für andere Grundtöne
+  werden die Formen chromatisch verschoben; Dur-Pentatonik nutzt dieselben
+  Formen über ihren Moll-Grundton.
+- **Nur ein Pattern**: Das Griffbrett zeigt ausschließlich die Töne des
+  ausgewählten Pattern und die zugehörigen Bünde (absolute Bundzahlen). Alle
+  anderen Skalentöne bleiben unsichtbar. Grundtöne sind rot markiert.
+- **Tonfolgen**: Eine Übung besteht aus **fünf vollständigen Tonfolgen**.
+  Jede Tonfolge spielt alle zwölf Töne des Pattern von der tiefsten zur
+  höchsten Lage. Jeder Ton wird `Wiederholungen pro Ton`-mal erwartet. Die
+  Anzeige nennt die aktuelle Tonfolge und das Pattern (`Tonfolge 2 / 5 ·
+  Pattern 1`) und zeigt die Chips der laufenden und der nächsten Tonfolge.
 - **Rückwärts**: Mit „Anschließend rückwärts“ folgt nach den fünf
-  aufsteigenden Tonfolgen eine sechste, absteigende Tonfolge
-  (`5–4–3–2–1`, z. B. `G E D C A`). Die Fortschrittsanzeige zählt dann
-  `x / 6` Tonfolgen bzw. entsprechend viele Anschläge.
-- **Vorspielen**: „Pentatonik anhören“ spielt die gewählte Skala einmal
-  aufwärts und wieder abwärts (Triangle-Oszillator, ~280 ms pro Ton) und
-  markiert dabei die passenden Punkte auf dem Griffbrett. So ist die Skala
-  vor der Übung hörbar.
+  aufsteigenden Tonfolgen eine sechste, absteigende Tonfolge. Die
+  Fortschrittsanzeige zählt dann `x / 6` Tonfolgen bzw. entsprechend viele
+  Anschläge.
+- **Vorspielen**: „Pattern anhören“ spielt die zwölf Töne des gewählten
+  Pattern aufwärts als gezupfte E-Gitarre und markiert dabei die passenden
+  Punkte auf dem Griffbrett.
 - **Automatische Prüfung**: Der Stimm-Modus läuft im Übungsbetrieb mit
   20 Updates/s. Ein Treffer wird nur gewertet, wenn die erkannte Pitch-Class
   zweimal hintereinander (ca. 100 ms) zum Zielton passt. Ein Ziel wird
@@ -307,6 +325,22 @@ Die Statistik liegt unter `guitarTrainer.stats.v2` in `localStorage`:
 - **Fehler**: Ein falscher Ton löst „Ton passt nicht“ aus und nennt den
   erwarteten und den gehörten Ton; der Fortschritt bleibt stehen, bis der
   richtige Ton gespielt wird. Die Übung endet mit Trefferquote und Fehlerzahl.
+
+## CAGED-System
+
+Die Trainer-Karte **CAGED-System** zeigt die fünf beweglichen Dur-Formen
+**C, A, G, E und D** für den gewählten Grundton:
+
+- Jede Form wird über die Lage ihres Grundtons auf der Referenzsaite
+  (tiefe E-, A- oder D-Saite) chromatisch verschoben.
+- Liegt eine Form vor dem Sattel, wird sie automatisch eine Oktave höher
+  gesetzt; über dem 24. Bund wird sie eine Oktave tiefer dargestellt.
+- Die Diagramme nummerieren die Bünde absolut und zeichnen keinen Sattel,
+  wenn die Form in einer höheren Lage liegt.
+- Die Karte folgt dem in der Akkordliste gewählten Akkord (Grundton); der
+  Grundton lässt sich zusätzlich direkt in der Karte umstellen.
+- CAGED beschreibt die Dur-Formen. Moll-Akkorde wie Em und Am werden in
+  denselben fünf Lagen gegriffen; die Terz liegt dabei einen Bund tiefer.
 
 ## Riff-/Einzelnoten-Modus
 
@@ -384,14 +418,19 @@ Der Hilfe-Modus benötigt kein Mikrofon und lässt sich wie die anderen Tabs
 
 ## Tests
 
-Die DSP-Kette, YIN-Erkennung, Pentatonik-Logik, Statistik und das Metronom sind
-ohne Browser testbar. Die Tests synthetisieren Gitarrenakkorde und Saitentöne
-mit Obertönen, führen eine echte FFT aus und prüfen unter anderem:
+Die DSP-Kette, YIN-Erkennung, Pentatonik-Logik, CAGED-Formen, der
+Gitarren-Synthesizer, Statistik und das Metronom sind ohne Browser testbar.
+Die Tests synthetisieren Gitarrenakkorde und Saitentöne mit Obertönen, führen
+eine echte FFT aus und prüfen unter anderem:
 
 - Erkennung aller Trainer-Akkorde und der sechs offenen Saiten,
 - Cent-Genauigkeit, Oktavfehler-Stabilität und Stille,
-- Hysterese und Akkorddaten,
-- Pentatonik-Intervalle, Übungsfolgen, Griffbrettpositionen und SVG,
+- **C5 auf der hohen E-Saite sowie den Bereich bis E6 (24. Bund)**,
+- Hysterese und Akkorddaten inklusive Em und Am,
+- **fünf Pentatonik-Pattern, Transposition, Übungsfolgen und die Beschränkung
+  des Griffbretts auf das ausgewählte Pattern**,
+- **CAGED-Formen für alle zwölf Grundtöne und absolute Bundzahlen**,
+- **Karplus-Strong-Gitarre: Bufferlänge, Grundfrequenz, Determinismus**,
 - Riff-Bibliothek, Notenpositionen, Frequenzen und Griffbrett-SVG,
 - Song-Bibliothek, alle Song-Loops und die neuen Griffe,
 - Einstellungs-Persistenz inkl. Validierung und Grenzwerten,
@@ -415,7 +454,7 @@ auch ohne TLS. Der Service Worker wird ebenfalls auf localhost registriert.
 
 - **Cache aktualisieren**: Nach Änderungen an Dateien in `app/` die
   `CACHE_VERSION` in `app/sw.js` erhöhen **und** die Versions-Query in
-  `app/index.html` sowie in der Precache-Liste anpassen (z. B. `?v=1.6.0`).
+  `app/index.html` sowie in der Precache-Liste anpassen (z. B. `?v=1.7.0`).
   So können installierte Clients nicht neues HTML mit altem JavaScript
   mischen.
 - **Icons neu generieren**: `python3 tools/generate_icons.py` (benötigt Pillow).
@@ -439,7 +478,7 @@ auch ohne TLS. Der Service Worker wird ebenfalls auf localhost registriert.
   Verzerrung reduzieren; Pegelanzeige sollte deutlich über „still“ liegen.
 - **Stimmgerät zeigt „Ton unklar“**: Nur eine Saite anschlagen, Ton sauber und
   ohne Effekte spielen, Mikrofon näher positionieren. Der erlaubte Bereich ist
-  60–500 Hz; bei starkem Brummen oder Nebengeräuschen lieber den Referenzton
+  60–1400 Hz; bei starkem Brummen oder Nebengeräuschen lieber den Referenzton
   nutzen.
 - **Stimmgerät zeigt die falsche Note**: Die Zielsaite über die sechs Buttons
   wählen. „Erkannt: A2 · Ziel E2“ bedeutet, dass die A-Saite klingt, aber E2
@@ -449,9 +488,9 @@ auch ohne TLS. Der Service Worker wird ebenfalls auf localhost registriert.
 - **USB-Adapter fehlt**: Adapter anschließen, Settings öffnen, „Geräte neu
   laden“. Bei Linux ggf. `arecord -l` prüfen.
 - **Tabs reagieren nicht / alte Version**: Im Settings-Sheet muss **Version
-  1.6.0** stehen. Nach einem Image-Update `docker compose build --no-cache &&
+  1.7.0** stehen. Nach einem Image-Update `docker compose build --no-cache &&
   docker compose up -d` ausführen, die PWA schließen und neu öffnen. HTML und
-  JavaScript sind mit `?v=1.6.0` versioniert, damit kein altes JS aus dem
+  JavaScript sind mit `?v=1.7.0` versioniert, damit kein altes JS aus dem
   Browser- oder Service-Worker-Cache geladen wird.
 - **Pentatonik-Übung zählt nicht weiter**: Töne einzeln und mit kurzer Pause
   spielen; bei wiederholtem gleichem Ton kurz abdämpfen. Die App prüft die

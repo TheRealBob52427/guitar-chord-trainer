@@ -29,7 +29,11 @@
       this._pitchTick = 0;
       this._referenceOsc = null;
       this._referenceGain = null;
+      this._referenceNodes = [];
       this._sequenceNodes = [];
+      this._pluckCache = new Map();
+      this._master = null;
+      this._compressor = null;
 
       this.matcher = new global.ChordTrainer.ChordMatcher(
         global.ChordTrainer.CHORD_ORDER,
@@ -188,6 +192,9 @@
         this.ctx.close().catch(() => {});
       }
       this.ctx = null;
+      this._master = null;
+      this._compressor = null;
+      this._pluckCache.clear();
     }
 
     resetDetection() {
@@ -209,62 +216,123 @@
       if (this.mode === 'chords') this.matcher.reset();
     }
 
-    /** Kurzer Referenzton für den Stimm-Modus (ohne Mikrofon-Feedback). */
+    /** Verstärker-Bus mit sanfter Kompression, damit Akkorde nicht clippen. */
+    _getOutput(ctx) {
+      if (!this._master) {
+        this._master = ctx.createGain();
+        this._master.gain.value = 0.9;
+        this._compressor = ctx.createDynamicsCompressor();
+        this._compressor.threshold.value = -18;
+        this._compressor.knee.value = 24;
+        this._compressor.ratio.value = 6;
+        this._compressor.attack.value = 0.003;
+        this._compressor.release.value = 0.25;
+        this._master.connect(this._compressor);
+        this._compressor.connect(ctx.destination);
+      }
+      return this._master;
+    }
+
+    /** Erzeugt (und cached) den E-Gitarren-Buffer für eine Frequenz. */
+    _pluckBuffer(frequency) {
+      const sampleRate = this.ctx.sampleRate;
+      const key = `${Math.round(frequency * 100)}@${sampleRate}`;
+      let buffer = this._pluckCache.get(key);
+      if (buffer) return buffer;
+
+      const render = global.ChordTrainer.renderPluckedString;
+      if (typeof render !== 'function') return null;
+      buffer = render(frequency, sampleRate, { duration: 2.2 });
+      this._pluckCache.set(key, buffer);
+      if (this._pluckCache.size > 64) {
+        const oldest = this._pluckCache.keys().next().value;
+        this._pluckCache.delete(oldest);
+      }
+      return buffer;
+    }
+
+    /**
+     * Plant einen gezupften Gitarrenton ein. Der Buffer klingt natürlich aus;
+     * die Gain-Hüllkurve begrenzt nur die Spielzeit.
+     */
+    _schedulePluck(frequency, when, duration, gainValue, bucket) {
+      const ctx = this.ctx;
+      if (!ctx) return null;
+      const buffer = this._pluckBuffer(frequency);
+      if (!buffer || !buffer.length) return null;
+
+      const length = Math.max(0.05, Math.min(Number(duration) || 0.5, buffer.duration));
+      const peak = Math.max(0.01, Math.min(0.9, Number(gainValue) || 0.45));
+      const source = ctx.createBufferSource();
+      const gain = ctx.createGain();
+
+      source.buffer = buffer;
+      gain.gain.setValueAtTime(0.0001, when);
+      gain.gain.exponentialRampToValueAtTime(peak, when + 0.005);
+      gain.gain.setValueAtTime(peak, when + Math.max(0.02, length - 0.06));
+      gain.gain.exponentialRampToValueAtTime(0.0001, when + length);
+
+      source.connect(gain);
+      gain.connect(this._getOutput(ctx));
+      source.start(when);
+      source.stop(when + length + 0.01);
+
+      const node = { source, gain };
+      bucket.push(node);
+      source.addEventListener('ended', () => {
+        try {
+          source.disconnect();
+          gain.disconnect();
+        } catch (error) { /* bereits getrennt */ }
+        const index = bucket.indexOf(node);
+        if (index >= 0) bucket.splice(index, 1);
+      });
+      return node;
+    }
+
+    _stopNodes(bucket) {
+      bucket.splice(0).forEach(({ source, gain }) => {
+        try {
+          source.stop();
+          source.disconnect();
+        } catch (error) { /* bereits beendet */ }
+        try { gain.disconnect(); } catch (error) { /* bereits getrennt */ }
+      });
+    }
+
+    /**
+     * Referenzton für den Stimm-Modus: mehrere gezupfte Gitarrentöne
+     * hintereinander, damit die Saite hörbar schwingt und nachklingt.
+     */
     async playReferenceTone(frequency, duration) {
       if (!Number.isFinite(frequency) || frequency <= 0) return;
       const ctx = await this.ensureContext();
       const length = Number.isFinite(duration) ? duration : 1.4;
 
       this.stopReferenceTone();
-
-      const oscillator = ctx.createOscillator();
-      const gain = ctx.createGain();
-      const now = ctx.currentTime;
-      const peak = 0.14;
-
-      oscillator.type = 'triangle';
-      oscillator.frequency.setValueAtTime(frequency, now);
-      gain.gain.setValueAtTime(0.0001, now);
-      gain.gain.exponentialRampToValueAtTime(peak, now + 0.03);
-      gain.gain.setValueAtTime(peak, now + Math.max(0.05, length - 0.18));
-      gain.gain.exponentialRampToValueAtTime(0.0001, now + length);
-
-      oscillator.connect(gain);
-      gain.connect(ctx.destination);
-      oscillator.start(now);
-      oscillator.stop(now + length + 0.02);
-
-      this._referenceOsc = oscillator;
-      this._referenceGain = gain;
-
-      oscillator.addEventListener('ended', () => {
-        try {
-          oscillator.disconnect();
-          gain.disconnect();
-        } catch (error) { /* bereits getrennt */ }
-        if (this._referenceOsc === oscillator) {
-          this._referenceOsc = null;
-          this._referenceGain = null;
-        }
-      });
+      const start = ctx.currentTime + 0.03;
+      const step = 0.5;
+      for (let offset = 0; offset < length; offset += step) {
+        const remaining = length - offset;
+        this._schedulePluck(
+          frequency,
+          start + offset,
+          Math.min(0.85, remaining),
+          0.5,
+          this._referenceNodes
+        );
+      }
     }
 
     stopReferenceTone() {
-      if (!this._referenceOsc) return;
-      try {
-        this._referenceOsc.stop();
-        this._referenceOsc.disconnect();
-      } catch (error) { /* bereits beendet */ }
-      if (this._referenceGain) {
-        try { this._referenceGain.disconnect(); } catch (error) { /* bereits getrennt */ }
-      }
+      this._stopNodes(this._referenceNodes);
       this._referenceOsc = null;
       this._referenceGain = null;
     }
 
     /**
-     * Spielt eine Folge von Frequenzen als kurze Töne (z. B. die Pentatonik
-     * zum Anhören). Gibt die geschätzte Dauer in Sekunden zurück.
+     * Spielt eine Folge von Frequenzen als gezupfte Gitarrentöne (z. B. die
+     * Pentatonik zum Anhören). Gibt die geschätzte Dauer in Sekunden zurück.
      */
     async playToneSequence(frequencies, options) {
       if (!Array.isArray(frequencies) || !frequencies.length) return 0;
@@ -275,8 +343,7 @@
       const opts = options && typeof options === 'object' ? options : {};
       const noteSec = Math.max(0.08, Number(opts.noteSec) || 0.3);
       const gapSec = Math.max(0, Number(opts.gapSec) || 0.05);
-      const type = opts.type || 'triangle';
-      const peak = Math.max(0.01, Math.min(0.3, Number(opts.peak) || 0.12));
+      const peak = Math.max(0.05, Math.min(0.8, Number(opts.peak) || 0.5));
 
       this.stopReferenceTone();
       this.stopToneSequence();
@@ -284,44 +351,48 @@
 
       valid.forEach((frequency, index) => {
         const noteStart = start + index * (noteSec + gapSec);
-        const oscillator = ctx.createOscillator();
-        const gain = ctx.createGain();
-
-        oscillator.type = type;
-        oscillator.frequency.setValueAtTime(frequency, noteStart);
-        gain.gain.setValueAtTime(0.0001, noteStart);
-        gain.gain.exponentialRampToValueAtTime(peak, noteStart + 0.02);
-        gain.gain.setValueAtTime(peak, noteStart + Math.max(0.04, noteSec * 0.6));
-        gain.gain.exponentialRampToValueAtTime(0.0001, noteStart + noteSec);
-
-        oscillator.connect(gain);
-        gain.connect(ctx.destination);
-        oscillator.start(noteStart);
-        oscillator.stop(noteStart + noteSec + 0.02);
-
-        oscillator.addEventListener('ended', () => {
-          try {
-            oscillator.disconnect();
-            gain.disconnect();
-          } catch (error) { /* bereits getrennt */ }
-          this._sequenceNodes = this._sequenceNodes.filter((node) => node.oscillator !== oscillator);
-        });
-
-        this._sequenceNodes.push({ oscillator, gain });
+        // Länger ausklingen lassen als die notierte Dauer – das klingt nach
+        // Gitarre statt nach piependen Einzeltönen.
+        const ring = Math.min(noteSec * 1.45 + 0.12, 2.4);
+        this._schedulePluck(frequency, noteStart, ring, peak, this._sequenceNodes);
       });
 
       return start + valid.length * (noteSec + gapSec) - ctx.currentTime;
     }
 
-    stopToneSequence() {
-      this._sequenceNodes.forEach(({ oscillator, gain }) => {
-        try {
-          oscillator.stop();
-          oscillator.disconnect();
-        } catch (error) { /* bereits beendet */ }
-        try { gain.disconnect(); } catch (error) { /* bereits getrennt */ }
+    /**
+     * Schlägt einen Akkord von der tiefen zur hohen Saite an (Strum).
+     */
+    async playChord(frequencies, options) {
+      if (!Array.isArray(frequencies) || !frequencies.length) return 0;
+      const valid = frequencies.filter((frequency) => Number.isFinite(frequency) && frequency > 0);
+      if (!valid.length) return 0;
+
+      const ctx = await this.ensureContext();
+      const opts = options && typeof options === 'object' ? options : {};
+      const strumSec = Math.max(0, Math.min(0.08, Number(opts.strumSec) || 0.035));
+      const duration = Math.max(0.4, Math.min(3.2, Number(opts.duration) || 2.2));
+      const peak = Math.max(0.05, Math.min(0.6, Number(opts.peak) || 0.4 / Math.sqrt(valid.length)));
+
+      this.stopReferenceTone();
+      this.stopToneSequence();
+      const start = ctx.currentTime + 0.05;
+
+      valid.forEach((frequency, index) => {
+        this._schedulePluck(
+          frequency,
+          start + index * strumSec,
+          Math.max(0.3, duration - index * strumSec * 0.3),
+          peak,
+          this._sequenceNodes
+        );
       });
-      this._sequenceNodes = [];
+
+      return start + valid.length * strumSec + duration - ctx.currentTime;
+    }
+
+    stopToneSequence() {
+      this._stopNodes(this._sequenceNodes);
     }
 
     _tick() {

@@ -104,6 +104,7 @@ function chromaFor(midiNotes) {
 }
 
 const VOICINGS = {
+  Em: [40, 47, 52, 55, 59, 64],
   G: [43, 47, 50, 55, 59, 67],
   Cadd9: [48, 52, 55, 62, 67],
   Em7: [40, 47, 52, 55, 62, 64],

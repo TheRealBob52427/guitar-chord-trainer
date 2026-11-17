@@ -1992,6 +1992,162 @@ code {
   to { opacity: 1; }
 }
 
+/* ---------- Pentatonik-Pattern ---------- */
+
+.pattern-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 14px 0 0;
+}
+
+.pattern-label {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.02em;
+}
+
+.pattern-buttons {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 4px;
+  flex: 1;
+  padding: 3px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.pattern-btn {
+  min-height: 34px;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 12.5px;
+  font-weight: 700;
+  transition: background 0.16s ease, color 0.16s ease, box-shadow 0.16s ease;
+}
+
+.pattern-btn.active {
+  background: var(--surface-3);
+  color: #fff;
+  box-shadow: inset 0 -2px 0 var(--primary);
+}
+
+.pattern-btn:disabled {
+  opacity: 0.5;
+}
+
+.scale-range {
+  margin: 8px 0 0;
+  color: var(--muted-2);
+  font-size: 10.5px;
+  text-align: center;
+}
+
+.pattern-fretboard .fb-fret-edge {
+  stroke: rgba(255, 255, 255, 0.22);
+  stroke-width: 1.4;
+}
+
+/* ---------- Akkord anhören ---------- */
+
+.chord-play-btn {
+  margin-top: 12px;
+}
+
+/* ---------- CAGED ---------- */
+
+.caged-card {
+  margin-top: 14px;
+}
+
+.caged-root-field {
+  min-width: 88px;
+}
+
+.caged-root-field .select {
+  min-height: 38px;
+  margin: 0;
+  padding: 7px 9px;
+  font-size: 12.5px;
+}
+
+.caged-summary {
+  margin: 10px 0 12px;
+}
+
+.caged-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.caged-item {
+  padding: 9px 8px 4px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.caged-item-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 0 2px;
+}
+
+.caged-item-head h3 {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.caged-item-head span {
+  color: var(--muted-2);
+  font-size: 9.5px;
+  text-align: right;
+  line-height: 1.25;
+}
+
+.caged-diagram {
+  display: flex;
+  justify-content: center;
+  margin-top: 2px;
+}
+
+.caged-diagram .fretboard {
+  width: 100%;
+  max-width: 150px;
+  height: auto;
+  overflow: visible;
+}
+
+.caged-diagram .fb-fretnum {
+  font-size: 11px;
+}
+
+.caged-diagram .fb-stringname {
+  font-size: 11px;
+}
+
+.caged-diagram .fb-dot circle {
+  fill: var(--primary);
+  stroke: rgba(255, 255, 255, 0.2);
+}
+
+.caged-note {
+  margin-top: 10px;
+}
+
+@media (min-width: 460px) {
+  .caged-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
 /* ---------- Responsive / motion ---------- */
 
 @media (max-width: 599px) {

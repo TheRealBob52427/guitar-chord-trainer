@@ -41,6 +41,25 @@ test('YIN erkennt auch hohe Töne am oberen Bereichsrand', () => {
   assert.ok(result.confidence > 0.75);
 });
 
+test('YIN erkennt C5 auf der hohen E-Saite (8. Bund, 523,25 Hz)', () => {
+  // Regression: maxHz lag früher bei 500 Hz, dadurch wurde das C der
+  // A-Moll-Pentatonik auf der hohen E-Saite nie erkannt.
+  const c5 = 523.2511;
+  const samples = synth(c5, { harmonics: [1, 0.5, 0.28, 0.16] });
+  const result = detectPitch(samples, SR);
+  assert.ok(result, 'C5 wurde nicht erkannt');
+  assert.ok(Math.abs(result.frequency - c5) < 1.5, `C5 -> ${result.frequency}`);
+  assert.ok(result.confidence > 0.75);
+  assert.equal(frequencyToNote(result.frequency).label, 'C5');
+});
+
+test('YIN deckt den Bereich bis zum 24. Bund der hohen E-Saite ab', () => {
+  const e6 = 1318.51;
+  const result = detectPitch(synth(e6), SR);
+  assert.ok(result, 'E6 (24. Bund) wurde nicht erkannt');
+  assert.ok(Math.abs(result.frequency - e6) < 5, `E6 -> ${result.frequency}`);
+});
+
 test('YIN bleibt bei starkem Oberton stabil (kein Oktavfehler)', () => {
   const samples = synth(82.4069, { harmonics: [0.45, 1, 0.4, 0.2] });
   const result = detectPitch(samples, SR);

@@ -22,11 +22,16 @@
     formatHz,
     NOTE_NAMES,
     PENTATONIC_RUNS,
+    PENTATONIC_PATTERNS,
+    PATTERN_COUNT,
     scalePitchClasses,
     scaleLabel,
-    scaleFrequencies,
-    buildSequence: buildPentatonicSequence,
+    buildPatternSequence,
+    patternFretRange,
     renderPentatonicFretboard,
+    buildCagedShapes,
+    visibleRange,
+    chordFrequencies,
     RIFFS,
     getRiff,
     riffLabel,
@@ -84,6 +89,12 @@
     scaleMinorBtn: document.getElementById('scaleMinorBtn'),
     scaleMajorBtn: document.getElementById('scaleMajorBtn'),
     scaleFretboard: document.getElementById('scaleFretboard'),
+    scalePatterns: document.getElementById('scalePatterns'),
+    scaleRange: document.getElementById('scaleRange'),
+    cagedRoot: document.getElementById('cagedRoot'),
+    cagedGrid: document.getElementById('cagedGrid'),
+    cagedSummary: document.getElementById('cagedSummary'),
+    chordPlayBtn: document.getElementById('chordPlayBtn'),
     practiceCard: document.getElementById('practiceCard'),
     practiceDot: document.getElementById('practiceDot'),
     practiceStatus: document.getElementById('practiceStatus'),
@@ -198,6 +209,7 @@
     scale: {
       rootPc: storedPrefs.scale.rootPc,
       type: storedPrefs.scale.type,
+      pattern: storedPrefs.scale.pattern,
       repeats: storedPrefs.scale.repeats,
       backward: storedPrefs.scale.backward,
       sequence: [],
@@ -246,6 +258,8 @@
       beatTimeout: null
     },
     running: false,
+    cagedRootPc: storedPrefs.cagedRoot,
+    audioPreviewUntil: 0,
     selectedDeviceId: storedPrefs.deviceId,
     stats: Stats.loadStats(window.localStorage, CHORD_ORDER),
     statusHoldUntil: 0,
@@ -293,9 +307,11 @@
       scale: {
         rootPc: state.scale.rootPc,
         type: state.scale.type,
+        pattern: state.scale.pattern,
         repeats: state.scale.repeats,
         backward: state.scale.backward
       },
+      cagedRoot: state.cagedRootPc,
       riffId: state.riff.riffId,
       deviceId: state.selectedDeviceId
     });
@@ -391,6 +407,7 @@
       return;
     }
     if (state.mode === 'help') return;
+    if (performance.now() < state.audioPreviewUntil) return;
     const target = CHORDS[state.chordId];
     const score = update.silent ? 0 : update.bestScore;
     const percent = Math.max(0, Math.min(100, Math.round(score * 100)));
@@ -421,6 +438,7 @@
       return;
     }
     if (state.mode === 'help') return;
+    if (performance.now() < state.audioPreviewUntil) return;
     const target = CHORDS[state.chordId];
     const heard = CHORDS[attempt.id];
     const success = attempt.id === target.id;
@@ -466,9 +484,23 @@
       notes.textContent = chord.notes.join(' · ');
 
       button.append(symbol, notes);
-      button.addEventListener('click', () => selectChord(id));
+      button.addEventListener('click', () => {
+        selectChord(id);
+        syncCagedToChord(id);
+      });
       els.chordButtons.append(button);
     });
+  }
+
+  /** CAGED-Karte auf den Grundton des gewählten Akkords stellen. */
+  function syncCagedToChord(id) {
+    const chord = CHORDS[id];
+    if (!chord || !chord.pitchClasses.length) return;
+    const rootPc = ((Number(chord.pitchClasses[0]) % 12) + 12) % 12;
+    if (rootPc === state.cagedRootPc) return;
+    state.cagedRootPc = rootPc;
+    updateCagedDisplay();
+    persistPrefs();
   }
 
   function selectChord(id) {
@@ -495,6 +527,81 @@
       setStatus(`Spiele ${chord.symbol} …`, 'listening', 0);
       setLiveStatus(`Spiele ${chord.symbol} …`, 'listening');
     }
+  }
+
+  /** Spielt den aktuellen Akkord als E-Gitarren-Strum vor. */
+  async function playSelectedChord() {
+    const chord = CHORDS[state.chordId];
+    if (!chord) return;
+    const frequencies = chordFrequencies(chord);
+    if (!frequencies.length) return;
+
+    // Eigene Wiedergabe nicht als Mikrofon-Treffer werten.
+    state.audioPreviewUntil = performance.now() + 2900;
+    if (els.chordPlayBtn) els.chordPlayBtn.disabled = true;
+    try {
+      await engine.playChord(frequencies, { duration: 2.4, strumSec: 0.04, peak: 0.36 });
+      setLiveStatus(`${chord.symbol} angeschlagen · ${chord.name}`, '');
+    } catch (error) {
+      toast('Akkord konnte nicht abgespielt werden.');
+    } finally {
+      window.setTimeout(() => {
+        if (els.chordPlayBtn) els.chordPlayBtn.disabled = false;
+      }, 700);
+    }
+  }
+
+  /* ---------- CAGED ---------- */
+
+  function buildCagedRootOptions() {
+    if (!els.cagedRoot) return;
+    NOTE_NAMES.forEach((name, pitchClass) => {
+      els.cagedRoot.add(new Option(name, String(pitchClass)));
+    });
+    els.cagedRoot.value = String(state.cagedRootPc);
+  }
+
+  function updateCagedDisplay() {
+    if (!els.cagedGrid) return;
+    const rootPc = state.cagedRootPc;
+    const shapes = buildCagedShapes(rootPc);
+    const rootName = NOTE_NAMES[rootPc];
+    if (els.cagedSummary) {
+      els.cagedSummary.textContent = `Akkordtöne von ${rootName}-Dur: ` +
+        `${rootName} · ${NOTE_NAMES[(rootPc + 4) % 12]} · ${NOTE_NAMES[(rootPc + 7) % 12]}. ` +
+        'Die fünf Formen decken das ganze Griffbrett ab.';
+    }
+
+    els.cagedGrid.innerHTML = shapes.map((shape) => {
+      const range = visibleRange(shape);
+      const chord = {
+        name: `${shape.chordName} · ${shape.name}`,
+        frets: shape.frets,
+        fingers: []
+      };
+      return `
+        <article class="caged-item" data-shape="${shape.id}">
+          <div class="caged-item-head">
+            <h3>${shape.name}</h3>
+            <span>${shape.rootName} · ${shape.rootDescription}</span>
+          </div>
+          <div class="caged-diagram">${renderFretboard(chord, {
+            startFret: range.startFret,
+            fretCount: range.fretCount,
+            showFingers: false
+          })}</div>
+        </article>`;
+    }).join('');
+
+    els.cagedRoot.value = String(rootPc);
+  }
+
+  function setCagedRoot(rootPc) {
+    const parsed = Math.round(Number(rootPc));
+    if (!Number.isFinite(parsed)) return;
+    state.cagedRootPc = ((parsed % 12) + 12) % 12;
+    updateCagedDisplay();
+    persistPrefs();
   }
 
   /* ---------- Modus & Stimmgerät ---------- */
@@ -789,18 +896,64 @@
     persistPrefs();
   }
 
+  function currentPattern() {
+    return PENTATONIC_PATTERNS[state.scale.pattern - 1] || PENTATONIC_PATTERNS[0];
+  }
+
+  function buildPatternButtons() {
+    if (!els.scalePatterns) return;
+    PENTATONIC_PATTERNS.forEach((pattern) => {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'pattern-btn';
+      button.dataset.pattern = String(pattern.id);
+      button.textContent = String(pattern.id);
+      button.setAttribute('aria-label', `${pattern.name}: ${pattern.description}`);
+      button.setAttribute('aria-pressed', String(pattern.id === state.scale.pattern));
+      button.addEventListener('click', () => selectPattern(pattern.id));
+      els.scalePatterns.append(button);
+    });
+  }
+
+  function updatePatternButtons() {
+    if (!els.scalePatterns) return;
+    els.scalePatterns.querySelectorAll('.pattern-btn').forEach((button) => {
+      const active = Number(button.dataset.pattern) === state.scale.pattern;
+      button.classList.toggle('active', active);
+      button.setAttribute('aria-pressed', String(active));
+    });
+  }
+
+  function selectPattern(patternId) {
+    const parsed = Math.round(Number(patternId));
+    if (!Number.isFinite(parsed)) return;
+    const next = Math.max(1, Math.min(PATTERN_COUNT, parsed));
+    if (next === state.scale.pattern) return;
+    state.scale.pattern = next;
+    stopPractice();
+    updateScaleDisplay();
+    refreshPracticeSequence();
+    persistPrefs();
+  }
+
   function updateScaleDisplay() {
-    const { rootPc, type } = state.scale;
+    const { rootPc, type, pattern } = state.scale;
     const pcs = scalePitchClasses(rootPc, type);
+    const activePattern = currentPattern();
+    const range = patternFretRange(rootPc, type, pattern);
     els.scaleHeading.textContent = scaleLabel(rootPc, type);
     els.scaleNotes.textContent = pcs.map((pc) => NOTE_NAMES[pc]).join(' · ');
-    els.scaleFretboard.innerHTML = renderPentatonicFretboard(rootPc, type);
+    els.scaleFretboard.innerHTML = renderPentatonicFretboard(rootPc, type, { pattern });
+    if (els.scaleRange) {
+      els.scaleRange.textContent = `${activePattern.name} · Bünde ${range.firstFret}–${range.lastFret} · ${activePattern.description}`;
+    }
     if (els.helpScaleDemo) {
       els.helpScaleDemo.innerHTML = renderPentatonicFretboard(rootPc, type);
     }
     els.scaleRoot.value = String(rootPc);
     els.scaleBackward.checked = state.scale.backward;
     updateScaleTypeButtons();
+    updatePatternButtons();
     updateScaleHighlight();
   }
 
@@ -813,19 +966,21 @@
     const note = scale.sequence[scale.active ? scale.index : 0];
     const run = note ? note.run : 1;
     const direction = note && note.direction === 'down' ? ' · rückwärts' : '';
-    els.practiceTargetLabel.textContent = `Tonfolge ${run} / ${totalScaleRuns()}${direction}`;
+    els.practiceTargetLabel.textContent = `Tonfolge ${run} / ${totalScaleRuns()}${direction} · ${currentPattern().name}`;
   }
 
   function refreshPracticeSequence() {
     const scale = state.scale;
-    scale.sequence = buildPentatonicSequence(
+    const pattern = currentPattern();
+    scale.sequence = buildPatternSequence(
       scale.rootPc,
       scale.type,
+      scale.pattern,
       PENTATONIC_RUNS,
       scale.repeats,
       scale.backward
     );
-    els.practiceInfo.textContent = `${PENTATONIC_RUNS} Tonfolgen · ${scale.repeats}× pro Ton` +
+    els.practiceInfo.textContent = `${PENTATONIC_RUNS} Tonfolgen · ${pattern.name} · ${scale.repeats}× pro Ton` +
       (scale.backward ? ' · + rückwärts' : '');
     els.scaleBackward.checked = scale.backward;
     renderPracticeSequence();
@@ -926,8 +1081,13 @@
   function updateScaleHighlight() {
     const active = state.scale.active;
     const target = active ? state.scale.sequence[state.scale.index] : null;
+    const targetPos = target && Number.isInteger(target.stringIndex) && Number.isInteger(target.fret)
+      ? `${target.stringIndex}-${target.fret}`
+      : null;
     els.scaleFretboard.querySelectorAll('[data-pc]').forEach((element) => {
-      const isTarget = Boolean(target && Number(element.dataset.pc) === target.pc);
+      const isTarget = target
+        ? (targetPos ? element.dataset.pos === targetPos : Number(element.dataset.pc) === target.pc)
+        : false;
       element.classList.toggle('is-target', isTarget);
     });
   }
@@ -941,12 +1101,11 @@
 
   async function previewScale() {
     if (state.scale.active) return;
-    const { rootPc, type } = state.scale;
-    const notes = scaleFrequencies(rootPc, type);
-    const pcs = scalePitchClasses(rootPc, type);
-    const frequencies = notes.concat(notes.slice(0, -1).reverse());
-    const previewPcs = pcs.concat(pcs.slice(0, -1).reverse());
-    const noteSec = 0.28;
+    const { rootPc, type, pattern } = state.scale;
+    const notes = buildPatternSequence(rootPc, type, pattern, 1, 1, false);
+    const frequencies = notes.map((note) => note.frequency).filter(Number.isFinite);
+    if (!frequencies.length) return;
+    const noteSec = 0.24;
     const gapSec = 0.05;
 
     clearPreviewTimers();
@@ -961,11 +1120,14 @@
       return;
     }
 
-    previewPcs.forEach((pc, index) => {
+    notes.forEach((note, index) => {
       const timer = window.setTimeout(() => {
         els.scaleFretboard.querySelectorAll('.is-playing')
           .forEach((element) => element.classList.remove('is-playing'));
-        els.scaleFretboard.querySelectorAll(`[data-pc="${pc}"]`)
+        const selector = Number.isInteger(note.stringIndex) && Number.isInteger(note.fret)
+          ? `[data-pos="${note.stringIndex}-${note.fret}"]`
+          : `[data-pc="${note.pc}"]`;
+        els.scaleFretboard.querySelectorAll(selector)
           .forEach((element) => element.classList.add('is-playing'));
       }, Math.max(0, index * (noteSec + gapSec) * 1000));
       state.previewTimers.push(timer);
@@ -1004,7 +1166,8 @@
     els.practiceTarget.classList.remove('is-good');
     setPracticeStatus('Bereit zum Üben', '');
     els.practiceDetected.textContent = 'Erkannt: –';
-    els.practiceHint.textContent = `Wähle Pentatonik und Tonfolgen, dann starte die Übung. ${PENTATONIC_RUNS} Tonfolgen mit allen fünf Tönen warten auf dich.`;
+    els.practiceHint.textContent = `Wähle Grundton, Tongeschlecht und Pattern, dann starte die Übung. ` +
+      `${PENTATONIC_RUNS} Tonfolgen durch ${currentPattern().name} warten auf dich.`;
 
     const first = scale.sequence[0];
     els.practiceTarget.textContent = first ? first.name : '–';
@@ -2282,6 +2445,12 @@
     });
     els.scaleMinorBtn.addEventListener('click', () => applyScaleType('minor'));
     els.scaleMajorBtn.addEventListener('click', () => applyScaleType('major'));
+    if (els.cagedRoot) {
+      els.cagedRoot.addEventListener('change', (event) => setCagedRoot(event.target.value));
+    }
+    if (els.chordPlayBtn) {
+      els.chordPlayBtn.addEventListener('click', playSelectedChord);
+    }
 
     els.scaleRepeats.addEventListener('input', (event) => {
       state.scale.repeats = Number(event.target.value);
@@ -2360,6 +2529,8 @@
     buildChordButtons();
     buildTunerStrings();
     buildScaleRootOptions();
+    buildPatternButtons();
+    buildCagedRootOptions();
     if (els.helpChordDemo) {
       els.helpChordDemo.innerHTML = renderFretboard(CHORDS.G);
     }
@@ -2367,6 +2538,7 @@
     refreshPracticeSequence();
     syncPracticeControls();
     stopPractice();
+    updateCagedDisplay();
     buildSongOptions();
     initSongView();
     buildRiffOptions();

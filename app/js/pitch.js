@@ -12,7 +12,10 @@
 
   const DEFAULTS = Object.freeze({
     minHz: 60,
-    maxHz: 500,
+    // Bis zum 24. Bund der hohen E-Saite (E6 ≈ 1318,5 Hz). Vorher lag die
+    // Grenze bei 500 Hz – dadurch wurde z. B. das C5 (8. Bund hohe E-Saite,
+    // 523,25 Hz) in der A-Moll-Pentatonik nie erkannt.
+    maxHz: 1400,
     threshold: 0.18,
     minConfidence: 0.6,
     minRmsDb: -55,

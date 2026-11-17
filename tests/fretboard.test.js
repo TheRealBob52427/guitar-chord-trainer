@@ -81,3 +81,32 @@ test('Templates sind normalisiert und enthalten die Akkordtöne', () => {
   const manual = buildTemplate([7, 11, 2]);
   assert.equal(manual[7], templates.G[7]);
 });
+
+test('E-Moll ist als Grundakkord mit offenen Saiten enthalten', () => {
+  const em = CHORDS.Em;
+  assert.ok(em);
+  assert.equal(em.name, 'E-Moll');
+  assert.deepEqual(em.strings, [0, 2, 2, 0, 0, 0]);
+  assert.deepEqual(em.fingers, [0, 2, 3, 0, 0, 0]);
+  assert.deepEqual(em.pitchClasses, [4, 7, 11]);
+  assert.equal(CHORD_ORDER[0], 'Em');
+  assert.ok(CHORD_ORDER.includes('Am'));
+
+  const svg = renderFretboard(em);
+  assert.equal(count(svg, 'class="fb-dot"'), 2);
+  assert.equal(count(svg, 'class="fb-open"'), 4);
+  assert.equal(count(svg, 'class="fb-muted"'), 0);
+});
+
+test('Höhere Lagen werden mit absoluten Bundzahlen gerendert', () => {
+  const chord = { name: 'A-Dur · C-Form', frets: [-1, 12, 11, 9, 10, 9], fingers: [] };
+  const svg = renderFretboard(chord, { startFret: 8, fretCount: 5, showFingers: false });
+  assert.equal(count(svg, 'class="fb-fretnum"'), 5);
+  assert.match(svg, />8<\/text>/);
+  assert.match(svg, />12<\/text>/);
+  assert.doesNotMatch(svg, /class="fb-nut"/);
+  assert.match(svg, /class="fb-fret fb-fret-edge"/);
+  assert.equal(count(svg, 'class="fb-dot"'), 5);
+  assert.equal(count(svg, 'class="fb-stringname"'), 6);
+  assert.doesNotMatch(svg, /undefined|NaN/);
+});

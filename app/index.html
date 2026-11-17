@@ -13,21 +13,23 @@
   <link rel="manifest" href="manifest.json">
   <link rel="icon" href="icons/favicon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="icons/icon-180.png">
-  <link rel="stylesheet" href="css/styles.css?v=1.6.0">
-  <script src="js/chords.js?v=1.6.0" defer></script>
-  <script src="js/detection.js?v=1.6.0" defer></script>
-  <script src="js/pitch.js?v=1.6.0" defer></script>
-  <script src="js/tuning.js?v=1.6.0" defer></script>
-  <script src="js/stats.js?v=1.6.0" defer></script>
-  <script src="js/prefs.js?v=1.6.0" defer></script>
-  <script src="js/pentatonic.js?v=1.6.0" defer></script>
-  <script src="js/riffs.js?v=1.6.0" defer></script>
-  <script src="js/songs.js?v=1.6.0" defer></script>
-  <script src="js/about.js?v=1.6.0" defer></script>
-  <script src="js/fretboard.js?v=1.6.0" defer></script>
-  <script src="js/metronome.js?v=1.6.0" defer></script>
-  <script src="js/audio.js?v=1.6.0" defer></script>
-  <script src="js/app.js?v=1.6.0" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=1.7.0">
+  <script src="js/chords.js?v=1.7.0" defer></script>
+  <script src="js/detection.js?v=1.7.0" defer></script>
+  <script src="js/pitch.js?v=1.7.0" defer></script>
+  <script src="js/tuning.js?v=1.7.0" defer></script>
+  <script src="js/stats.js?v=1.7.0" defer></script>
+  <script src="js/prefs.js?v=1.7.0" defer></script>
+  <script src="js/pentatonic.js?v=1.7.0" defer></script>
+  <script src="js/riffs.js?v=1.7.0" defer></script>
+  <script src="js/songs.js?v=1.7.0" defer></script>
+  <script src="js/about.js?v=1.7.0" defer></script>
+  <script src="js/fretboard.js?v=1.7.0" defer></script>
+  <script src="js/caged.js?v=1.7.0" defer></script>
+  <script src="js/guitar-synth.js?v=1.7.0" defer></script>
+  <script src="js/metronome.js?v=1.7.0" defer></script>
+  <script src="js/audio.js?v=1.7.0" defer></script>
+  <script src="js/app.js?v=1.7.0" defer></script>
 </head>
 <body>
   <header class="app-header">
@@ -57,9 +59,10 @@
       </div>
       <h1 id="startTitle">Stimme deine Gitarre.<br>Dann spiel los.</h1>
       <p class="start-copy">
-        Der Trainer hört dir zu, erkennt <strong>G</strong>, <strong>C</strong>, <strong>Am</strong>,
-        <strong>E7</strong>, <strong>F</strong>, <strong>Cadd9</strong>, <strong>Em7</strong>,
-        <strong>Dsus4</strong> und <strong>A7sus4</strong> – stimmt jede Saite, prüft Pentatonik und Einzelnoten-Riffs und begleitet dich durch Songs.
+        Der Trainer hört dir zu, erkennt <strong>Em</strong>, <strong>Am</strong>, <strong>G</strong>,
+        <strong>C</strong>, <strong>E7</strong>, <strong>F</strong>, <strong>Cadd9</strong>, <strong>Em7</strong>,
+        <strong>Dsus4</strong> und <strong>A7sus4</strong> – stimmt jede Saite, prüft Pentatonik in fünf
+        Pattern, zeigt das CAGED-System und begleitet dich durch Songs.
       </p>
       <button id="startBtn" class="btn btn-primary btn-lg" type="button">
         <span aria-hidden="true">🎤</span> Mikrofon aktivieren
@@ -97,6 +100,9 @@
           </div>
           <div id="fretboard" class="fretboard-wrap"></div>
           <p id="chordTip" class="chord-tip"></p>
+          <button id="chordPlayBtn" class="btn btn-secondary btn-full chord-play-btn" type="button">
+            Akkord anhören
+          </button>
         </section>
 
         <section id="detectionCard" class="card detection-card" aria-labelledby="statusText">
@@ -144,6 +150,27 @@
         <section class="chord-select" aria-labelledby="selectHeading">
           <h2 id="selectHeading" class="section-title">Akkord wählen</h2>
           <div id="chordButtons" class="chord-grid"></div>
+        </section>
+
+        <section id="cagedCard" class="card caged-card" aria-labelledby="cagedHeading">
+          <div class="card-head card-head-compact">
+            <div>
+              <p class="eyebrow">CAGED-System</p>
+              <h2 id="cagedHeading">Fünf Dur-Formen</h2>
+            </div>
+            <label class="scale-field caged-root-field" for="cagedRoot">
+              Grundton
+              <select id="cagedRoot" class="select"></select>
+            </label>
+          </div>
+          <p id="cagedSummary" class="chord-tip caged-summary">
+            Die fünf beweglichen Formen C, A, G, E und D decken das ganze Griffbrett ab.
+          </p>
+          <div id="cagedGrid" class="caged-grid"></div>
+          <p class="app-footnote caged-note">
+            CAGED beschreibt die fünf Dur-Formen. Moll-Akkorde wie Em und Am werden in
+            denselben fünf Lagen gegriffen – nur die Terz liegt einen Bund tiefer.
+          </p>
         </section>
 
         <p class="app-footnote">Tipp: Erst stimmen, dann greifen – und jeden Akkord einmal klingen lassen.</p>
@@ -218,6 +245,12 @@
             </div>
           </div>
 
+          <div class="pattern-row">
+            <span class="pattern-label">Pattern</span>
+            <div id="scalePatterns" class="pattern-buttons" role="group" aria-label="Pentatonik-Pattern wählen"></div>
+          </div>
+          <p id="scaleRange" class="scale-range"></p>
+
           <div id="scaleFretboard" class="scale-fretboard-wrap"></div>
           <div class="scale-legend">
             <span><i class="legend-dot is-root"></i>Grundton</span>
@@ -234,7 +267,7 @@
                 <h2 id="practiceStatus">Bereit zum Üben</h2>
               </div>
             </div>
-            <span id="practiceProgressLabel" class="pill pill-score">0 / 25</span>
+            <span id="practiceProgressLabel" class="pill pill-score">0 / 60</span>
           </div>
 
           <div class="practice-readout">
@@ -242,7 +275,7 @@
             <span id="practiceTarget" class="practice-target">A</span>
             <div class="practice-meta">
               <span id="practiceDetected">Erkannt: –</span>
-              <span id="practiceInfo">5 Tonfolgen · 1× pro Ton</span>
+              <span id="practiceInfo">5 Tonfolgen · Pattern 1 · 1× pro Ton</span>
             </div>
           </div>
 
@@ -266,7 +299,7 @@
           <label class="switch-row" for="scaleBackward">
             <span class="switch-copy">
               <strong>Anschließend rückwärts</strong>
-              <small>Nach den 5 Tonfolgen eine Tonfolge abwärts spielen (5–4–3–2–1).</small>
+              <small>Nach den 5 Tonfolgen eine Tonfolge abwärts durch das Pattern spielen.</small>
             </span>
             <input id="scaleBackward" class="switch-input" type="checkbox">
           </label>
@@ -454,11 +487,12 @@
           <h3 class="help-title">Pentatonik-Griffbrett</h3>
           <div id="helpScaleDemo" class="help-demo"></div>
           <ul class="help-list">
-            <li>Das Pentatonik-Diagramm zeigt <strong>zwölf Bünde</strong>. Jeder Punkt trägt den Namen des Tons, der dort klingt.</li>
-            <li><strong>Rote Punkte</strong> sind der Grundton der Skala, dunkle Punkte die übrigen Skalentöne. Töne außerhalb der Pentatonik werden nicht angezeigt.</li>
-            <li>Die Punkte <strong>über dem Sattel</strong> sind leere Saiten (0. Bund).</li>
-            <li>Der <strong>weiß umrandete Punkt</strong> ist der aktuell erwartete Zielton. Er kann auf mehreren Saiten und in mehreren Oktaven liegen – es zählt der Tonname, nicht die Lage.</li>
-            <li>Die kleinen Punkte auf der Griffbrettmitte markieren die Bünde 3, 5, 7, 9 und 12 als Orientierung.</li>
+            <li>Das Pattern-Diagramm zeigt <strong>nur die Töne der gewählten Lage</strong>. Mit den fünf Pattern 1–5 wanderst du über das ganze Griffbrett; jedes Pattern enthält alle fünf Skalentöne.</li>
+            <li>Die Bundzahlen links gelten absolut. Pattern 1 beginnt bei A-Moll im 5. Bund, Pattern 5 liegt in der offenen Lage.</li>
+            <li><strong>Rote Punkte</strong> sind der Grundton der Skala, dunkle Punkte die übrigen Skalentöne.</li>
+            <li>Die Punkte <strong>über dem Sattel</strong> sind leere Saiten (0. Bund), wenn ein Pattern bis an den Sattel reicht.</li>
+            <li>Der <strong>weiß umrandete Punkt</strong> ist der aktuell erwartete Zielton – genau auf der Saite und im Bund, den das Pattern vorgibt.</li>
+            <li>Die kleinen Punkte auf der Griffbrettmitte markieren die Bünde 3, 5, 7, 9, 12 als Orientierung.</li>
           </ul>
         </section>
 
@@ -468,7 +502,7 @@
             <li>Der <strong>Zeiger im Stimmgerät</strong> zeigt die Abweichung in Cent: links = zu tief, rechts = zu hoch. Der grüne Bereich sind <strong>±5 Cent</strong>; dort ist die Saite gestimmt.</li>
             <li><strong>Auto-Erkennung</strong> wählt die angeschlagene Saite selbst. Ohne Auto tippst du die Saite vorher in der Reihe E2–E4 an.</li>
             <li>Die <strong>Chips unter „Abfolge“</strong> zeigen die erwarteten Töne. Der hervorgehobene Chip ist der nächste Ton, abgeblendete Chips sind bereits geschafft.</li>
-            <li><strong>Tonfolge</strong> bedeutet eine komplette Runde durch alle fünf Skalentöne. Eine Übung besteht aus fünf Tonfolgen; mit „Anschließend rückwärts“ kommt eine absteigende Runde dazu.</li>
+            <li><strong>Tonfolge</strong> bedeutet eine komplette Runde durch alle zwölf Töne des gewählten Pattern (von der tiefsten zur höchsten Saite). Eine Übung besteht aus fünf Tonfolgen; mit „Anschließend rückwärts“ kommt eine absteigende Runde dazu.</li>
           </ul>
         </section>
       </div>
@@ -524,7 +558,7 @@
 
       <div class="about-block">
         <p class="fineprint version">
-          Version <span id="appVersion">1.6.0</span> · Läuft vollständig offline
+          Version <span id="appVersion">1.7.0</span> · Läuft vollständig offline
         </p>
         <a id="repoLink" class="btn btn-secondary btn-full"
            href="https://github.com/TheRealBob52427/guitar-chord-trainer"

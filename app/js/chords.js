@@ -55,6 +55,16 @@
       fingers: [0, 0, 2, 3, 1, 0],
       tip: 'Zeigefinger auf die B-Saite (1. Bund), Mittel- und Ringfinger auf D- und G-Saite (2. Bund); A- und hohe E-Saite bleiben offen.'
     },
+    Em: {
+      id: 'Em',
+      name: 'E-Moll',
+      symbol: 'Em',
+      notes: ['E', 'G', 'B'],
+      pitchClasses: [4, 7, 11],
+      strings: [0, 2, 2, 0, 0, 0],
+      fingers: [0, 2, 3, 0, 0, 0],
+      tip: 'Mittel- und Ringfinger auf A- und D-Saite (2. Bund); tiefe E-, G-, B- und hohe E-Saite bleiben offen. Der einfachste Moll-Akkord für den Einstieg.'
+    },
     Em7: {
       id: 'Em7',
       name: 'E-Moll 7',
@@ -107,7 +117,7 @@
     }
   };
 
-  const CHORD_ORDER = ['G', 'C', 'Cadd9', 'Am', 'Em7', 'Dsus4', 'A7sus4', 'E7', 'F'];
+  const CHORD_ORDER = ['Em', 'Am', 'G', 'C', 'Cadd9', 'Em7', 'Dsus4', 'A7sus4', 'E7', 'F'];
 
   // `strings` ist kanonisch, `frets` wird überall im Renderer und in den Tests
   // verwendet.

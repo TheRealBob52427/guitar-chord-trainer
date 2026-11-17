@@ -5,11 +5,15 @@ const assert = require('node:assert/strict');
 
 const {
   PENTATONIC_RUNS,
+  PENTATONIC_PATTERNS,
   scalePitchClasses,
   scaleLabel,
   scaleFrequencies,
   buildSequence,
   buildPositions,
+  patternFretRange,
+  buildPatternPositions,
+  buildPatternSequence,
   renderPentatonicFretboard
 } = require('../app/js/pentatonic.js');
 
@@ -118,5 +122,89 @@ test('SVG enthält alle Töne, Bundnummern und Saiten', () => {
   assert.ok((svg.match(/class="fb-stringname"/g) || []).length === 6);
   assert.match(svg, /data-pc="9"/);
   assert.match(svg, /is-root/);
+  assert.doesNotMatch(svg, /undefined|NaN/);
+});
+
+test('Fünf Pattern mit je zwei Tönen pro Saite', () => {
+  assert.equal(PENTATONIC_PATTERNS.length, 5);
+  PENTATONIC_PATTERNS.forEach((pattern) => {
+    assert.equal(pattern.frets.length, 6);
+    pattern.frets.forEach((frets) => assert.equal(frets.length, 2));
+    assert.equal(pattern.frets.flat().length, 12);
+  });
+});
+
+test('Pattern 1–5 der A-Moll-Pentatonik liegen in den erwarteten Bünden', () => {
+  const ranges = [1, 2, 3, 4, 5].map((id) => patternFretRange(9, 'minor', id));
+  assert.deepEqual(
+    ranges.map((range) => [range.firstFret, range.lastFret]),
+    [[5, 8], [7, 10], [9, 13], [12, 15], [2, 5]]
+  );
+
+  [1, 2, 3, 4, 5].forEach((id) => {
+    const positions = buildPatternPositions(9, 'minor', id);
+    const allowed = new Set(scalePitchClasses(9, 'minor'));
+    assert.equal(positions.length, 12);
+    assert.equal(new Set(positions.map((position) => `${position.stringIndex}-${position.fret}`)).size, 12);
+    positions.forEach((position) => {
+      assert.ok(allowed.has(position.pc), `Pattern ${id}: ${position.name} gehört nicht zur Skala`);
+      assert.ok(position.fret >= ranges[id - 1].firstFret);
+      assert.ok(position.fret <= ranges[id - 1].lastFret);
+    });
+  });
+
+  // Pattern 3 hat den weiten Griff C auf der B-Saite (10 -> 13).
+  const pattern3 = buildPatternPositions(9, 'minor', 3);
+  assert.ok(pattern3.some((position) => position.stringIndex === 4 && position.fret === 13));
+});
+
+test('Pattern werden für andere Grundtöne chromatisch verschoben', () => {
+  const eMinor = buildPatternPositions(4, 'minor', 1);
+  assert.deepEqual([...new Set(eMinor.map((position) => position.name))].sort(), ['A', 'B', 'D', 'E', 'G']);
+  assert.equal(patternFretRange(4, 'minor', 1).firstFret, 0);
+
+  const cMajor = buildPatternPositions(0, 'major', 1);
+  const allowed = new Set(scalePitchClasses(0, 'major'));
+  assert.ok(cMajor.every((position) => allowed.has(position.pc)));
+  assert.ok(cMajor.some((position) => position.isRoot && position.name === 'C'));
+  assert.equal(patternFretRange(0, 'major', 1).firstFret, 5);
+
+  const gMajor = buildPatternPositions(7, 'major', 1);
+  const gAllowed = new Set(scalePitchClasses(7, 'major'));
+  assert.ok(gMajor.every((position) => gAllowed.has(position.pc)));
+  assert.equal(patternFretRange(7, 'major', 1).firstFret, 0);
+});
+
+test('Pattern-Übungsfolge enthält alle 12 Töne und läuft auf- und abwärts', () => {
+  const sequence = buildPatternSequence(9, 'minor', 1, 1, 1, false);
+  assert.equal(sequence.length, 12);
+  assert.deepEqual(
+    sequence.map((note) => note.name),
+    ['A', 'C', 'D', 'E', 'G', 'A', 'C', 'D', 'E', 'G', 'A', 'C']
+  );
+  assert.ok(sequence.every((note) => note.direction === 'up'));
+  assert.ok(sequence.every((note) => Number.isInteger(note.stringIndex) && Number.isInteger(note.fret)));
+
+  const repeated = buildPatternSequence(9, 'minor', 1, 2, 1, true);
+  assert.equal(repeated.length, 2 * 12 + 12);
+  assert.deepEqual(
+    repeated.slice(-12).map((note) => note.name),
+    ['C', 'A', 'G', 'E', 'D', 'C', 'A', 'G', 'E', 'D', 'C', 'A']
+  );
+  assert.equal(buildPatternSequence(9, 'minor', 1, 1, 2, false).length, 24);
+});
+
+test('Pattern-SVG zeigt ausschließlich das ausgewählte Pattern', () => {
+  const svg = renderPentatonicFretboard(9, 'minor', { pattern: 2 });
+  assert.match(svg, /data-pattern="2"/);
+  assert.match(svg, /Pattern 2/);
+  assert.match(svg, /Bünde 7 bis 10/);
+  assert.equal((svg.match(/class="scale-dot/g) || []).length, 12);
+  assert.equal((svg.match(/class="scale-open/g) || []).length, 0);
+  assert.equal((svg.match(/class="fb-fretnum"/g) || []).length, 4);
+  assert.equal((svg.match(/class="fb-stringname"/g) || []).length, 6);
+  // Töne aus Pattern 1 (z. B. tiefe E-Saite 5. Bund) dürfen nicht auftauchen.
+  assert.doesNotMatch(svg, /data-pos="0-5"/);
+  assert.match(svg, /data-pos="0-8"/);
   assert.doesNotMatch(svg, /undefined|NaN/);
 });

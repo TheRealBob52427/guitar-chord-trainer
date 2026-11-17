@@ -19,9 +19,11 @@
     scale: Object.freeze({
       rootPc: 9,
       type: 'minor',
+      pattern: 1,
       repeats: 1,
       backward: false
     }),
+    cagedRoot: 9,
     riffId: 'seven-nation-army',
     deviceId: ''
   });
@@ -48,9 +50,11 @@
       scale: {
         rootPc: clampInteger(scale.rootPc, 0, 11, DEFAULTS.scale.rootPc),
         type: SCALE_TYPES.includes(scale.type) ? scale.type : DEFAULTS.scale.type,
+        pattern: clampInteger(scale.pattern, 1, 5, DEFAULTS.scale.pattern),
         repeats: clampInteger(scale.repeats, 1, 4, DEFAULTS.scale.repeats),
         backward: scale.backward === true
       },
+      cagedRoot: clampInteger(source.cagedRoot, 0, 11, DEFAULTS.cagedRoot),
       riffId,
       deviceId
     };

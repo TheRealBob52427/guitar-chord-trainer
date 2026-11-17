@@ -22,7 +22,8 @@ test('Default-Einstellungen sind vollständig', () => {
     bpm: 50,
     tuningStringIndex: 0,
     tunerAuto: false,
-    scale: { rootPc: 9, type: 'minor', repeats: 1, backward: false },
+    scale: { rootPc: 9, type: 'minor', pattern: 1, repeats: 1, backward: false },
+    cagedRoot: 9,
     riffId: 'seven-nation-army',
     deviceId: ''
   });
@@ -41,7 +42,8 @@ test('Einstellungen überleben Speichern und Laden', () => {
     bpm: 123,
     tuningStringIndex: 4,
     tunerAuto: true,
-    scale: { rootPc: 4, type: 'major', repeats: 3, backward: true },
+    scale: { rootPc: 4, type: 'major', pattern: 4, repeats: 3, backward: true },
+    cagedRoot: 2,
     riffId: 'californication',
     deviceId: 'device-abc'
   };
@@ -64,8 +66,10 @@ test('Ungültige Werte werden begrenzt oder ersetzt', () => {
   assert.equal(normalized.tunerAuto, false);
   assert.equal(normalized.scale.rootPc, 0);
   assert.equal(normalized.scale.type, 'minor');
+  assert.equal(normalized.scale.pattern, 1);
   assert.equal(normalized.scale.repeats, 1);
   assert.equal(normalized.scale.backward, false);
+  assert.equal(normalized.cagedRoot, 9);
   assert.equal(normalized.riffId, 'seven-nation-army');
   assert.equal(normalized.deviceId, '');
 

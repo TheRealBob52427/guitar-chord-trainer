@@ -123,9 +123,9 @@ test('Song-Matcher erkennt A7sus4', () => {
 test('Der Trainer enthält alle Song-Akkorde', () => {
   assert.deepEqual(
     CHORD_ORDER,
-    ['G', 'C', 'Cadd9', 'Am', 'Em7', 'Dsus4', 'A7sus4', 'E7', 'F']
+    ['Em', 'Am', 'G', 'C', 'Cadd9', 'Em7', 'Dsus4', 'A7sus4', 'E7', 'F']
   );
-  ['Em7', 'G', 'Dsus4', 'A7sus4', 'C', 'Am', 'E7', 'F'].forEach((id) => {
+  ['Em', 'Am', 'Em7', 'G', 'Dsus4', 'A7sus4', 'C', 'E7', 'F'].forEach((id) => {
     assert.ok(CHORD_ORDER.includes(id), `Trainer fehlt ${id}`);
   });
 });
