@@ -7,7 +7,7 @@
 (function (global) {
   'use strict';
 
-  const APP_VERSION = '1.7.1';
+  const APP_VERSION = '1.8.0';
   const REPO_URL = 'https://github.com/TheRealBob52427/guitar-chord-trainer';
   const KOFI_URL = 'https://ko-fi.com/therealbob33119';
 

@@ -373,6 +373,37 @@
     }
 
     /**
+     * Plant eine Folge von Tönen mit individuellen Startzeiten und Dauern.
+     * `steps`: [{ frequency, startSec, durationSec, gain }]
+     * Wird für Riffs mit eigenem Rhythmus und für die Song-Wiedergabe genutzt.
+     */
+    async playTimedSequence(steps, options) {
+      if (!Array.isArray(steps) || !steps.length) return 0;
+      const valid = steps.filter((step) => step && Number.isFinite(step.frequency) && step.frequency > 0);
+      if (!valid.length) return 0;
+
+      const ctx = await this.ensureContext();
+      const opts = options && typeof options === 'object' ? options : {};
+      const peak = Math.max(0.02, Math.min(0.8, Number(opts.peak) || 0.4));
+      const lead = Math.max(0.02, Math.min(0.3, Number(opts.lead) || 0.06));
+
+      this.stopReferenceTone();
+      this.stopToneSequence();
+      const start = ctx.currentTime + lead;
+      let end = start;
+
+      valid.forEach((step) => {
+        const when = start + Math.max(0, Number(step.startSec) || 0);
+        const duration = Math.max(0.05, Math.min(Number(step.durationSec) || 0.4, 2.2));
+        const gain = Number.isFinite(step.gain) ? Math.max(0, Math.min(2, step.gain)) : 1;
+        this._schedulePluck(step.frequency, when, duration, peak * gain, this._sequenceNodes);
+        end = Math.max(end, when + duration);
+      });
+
+      return end - ctx.currentTime;
+    }
+
+    /**
      * Schlägt einen Akkord von der tiefen zur hohen Saite an (Strum).
      */
     async playChord(frequencies, options) {

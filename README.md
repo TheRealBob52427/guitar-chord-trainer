@@ -119,9 +119,10 @@ Betrieb bleibt das Image unverändert.
 5. Im Tab **Riffs** ein Riff wählen, optional „Klick starten“ und mit
    „Übung starten“ die Noten in der angezeigten Reihenfolge spielen. Die App
    prüft jeden Ton und zeigt Note, Saite und Bund an.
-6. Im Tab **Songs** ein Lied wählen, das Tempo einstellen und „Mitspielen
-   starten“ antippen. Die App zeigt den aktuellen und nächsten Akkord, spielt
-   den Klick und prüft die gespielten Akkorde.
+6. Im Tab **Songs** ein Lied wählen, das Tempo einstellen und mit
+   „Song anhören“ die Akkordfolge als E-Gitarre abspielen. „Mitspielen
+   starten“ startet danach den Klick und die Akkordprüfung; die App zeigt den
+   aktuellen und nächsten Akkord und prüft die gespielten Akkorde.
 7. Im Tab **Hilfe** erklärt die App alle verwendeten Griffbrett-Notationen:
    offene und gedämpfte Saiten, Fingernummern, Bundnummern, Grundton-Markierung
    und Zielton-Hervorhebung.
@@ -351,13 +352,13 @@ Stimmgerät. Das Timing wird nicht bewertet – der Klick ist eine optionale
 Hilfe, um im Tempo des Originals zu bleiben.
 
 - **Bibliothek**: `app/js/riffs.js`, aktuell:
-  - **Seven Nation Army** (The White Stripes, 124 BPM): sieben Noten
-    `E2 E2 G2 E2 D3 C3 B2` auf der tiefen E-Saite (`0–0–3–0–10–8–7`). Auf der
-    Aufnahme klingt das Riff eine Oktave tiefer; diese Lage trifft dieselben
-    Töne ohne Pitch-Shifter.
+  - **Seven Nation Army** (The White Stripes, 120 BPM): sieben Noten
+    `E3 E3 G3 E3 D3 C3 B2` auf der A-Saite (`7–7–10–7–5–3–2`). Die Aufnahme
+    nutzt ein Whammy-Pedal eine Oktave tiefer; das Vorspielen klingt deshalb
+    eine Oktave unter den angezeigten Griffen.
   - **Californication** (Red Hot Chili Peppers, 96 BPM): das Am/F-Arpeggio aus
     Intro und Refrain, 32 Achtelnoten über vier Takte
-    (`A2 E3 A3 C4 E4 C4 A3 E3` / `C3 F3 A3 C4 F4 C4 A3 F3`, zweimal).
+    (`A2 E3 A3 C4 E4 C4 A3 E3` / `F2 C3 F3 A3 C4 A3 F3 C3`, zweimal).
 - **Anzeige**: Note mit Oktave, Saite und Bund; Sequenz-Chips mit
   Positionsangabe (`E0` = tiefe E-Saite offen, `A3` = A-Saite 3. Bund);
   Griffbrett mit so vielen Bünden wie nötig (mindestens 5), Grundton- und
@@ -366,8 +367,9 @@ Hilfe, um im Tempo des Originals zu bleiben.
   als Treffer. Gleiche Töne in Folge brauchen ein kurzes Abdämpfen
   (250 ms Gnadenfrist und Hysterese wie im Pentatonik-Trainer). Falsche Töne
   werden als Fehler gezählt, blockieren den Fortschritt aber nicht.
-- **Vorspielen**: „Riff anhören“ spielt die Folge im Tempo des Originals und
-  hebt dabei den jeweils klingenden Ton hervor.
+- **Vorspielen**: „Riff anhören“ spielt die Folge im Originaltempo und mit dem
+  Rhythmus aus `note.beats` (Achtelnoten bzw. längere Haltetöne) und hebt dabei
+  den jeweils klingenden Ton hervor.
 - **Inhalte**: nur Notenpositionen – keine Aufnahmen, Lyrics oder Melodietexte.
 
 ## Song-Modus
@@ -390,6 +392,10 @@ mit derselben Chroma-Erkennung wie der Trainer.
   Akkordtöne im Chromagramm findet.
 - **Ablauf**: aktueller und nächster Akkord, Griffbrett-Diagramm, Takt-Leiste,
   Klick und Beat-Dots. Nach acht Takten beginnt der Loop von vorn.
+- **Anhören**: „Song anhören“ spielt die komplette Akkordfolge als
+  E-Gitarren-Strum im eingestellten Tempo (Achtel-Muster mit betonten
+  Zählzeiten), markiert den aktuellen Takt und die Beat-Dots und funktioniert
+  ohne Mikrofon. Während der Wiedergabe sind Tempo und Songauswahl gesperrt.
 - **Prüfung**: Bei jedem Taktwechsel wird der Zielakkord gesetzt und der
   Detektor zurückgesetzt. Ein Treffer zählt nur, wenn der erkannte Akkord dem
   Ziel entspricht; Treffer/Versuche werden separat von der Akkordstatistik
@@ -454,7 +460,7 @@ auch ohne TLS. Der Service Worker wird ebenfalls auf localhost registriert.
 
 - **Cache aktualisieren**: Nach Änderungen an Dateien in `app/` die
   `CACHE_VERSION` in `app/sw.js` erhöhen **und** die Versions-Query in
-  `app/index.html` sowie in der Precache-Liste anpassen (z. B. `?v=1.7.1`).
+  `app/index.html` sowie in der Precache-Liste anpassen (z. B. `?v=1.8.0`).
   So können installierte Clients nicht neues HTML mit altem JavaScript
   mischen.
 - **Icons neu generieren**: `python3 tools/generate_icons.py` (benötigt Pillow).
@@ -488,9 +494,9 @@ auch ohne TLS. Der Service Worker wird ebenfalls auf localhost registriert.
 - **USB-Adapter fehlt**: Adapter anschließen, Settings öffnen, „Geräte neu
   laden“. Bei Linux ggf. `arecord -l` prüfen.
 - **Tabs reagieren nicht / alte Version**: Im Settings-Sheet muss **Version
-  1.7.1** stehen. Nach einem Image-Update `docker compose build --no-cache &&
+  1.8.0** stehen. Nach einem Image-Update `docker compose build --no-cache &&
   docker compose up -d` ausführen, die PWA schließen und neu öffnen. HTML und
-  JavaScript sind mit `?v=1.7.1` versioniert, damit kein altes JS aus dem
+  JavaScript sind mit `?v=1.8.0` versioniert, damit kein altes JS aus dem
   Browser- oder Service-Worker-Cache geladen wird.
 - **Pentatonik-Übung zählt nicht weiter**: Töne einzeln und mit kurzer Pause
   spielen; bei wiederholtem gleichem Ton kurz abdämpfen. Die App prüft die

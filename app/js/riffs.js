@@ -42,11 +42,12 @@
       octave: Math.floor(midi / 12) - 1,
       label: `${NOTE_NAMES[pc]}${Math.floor(midi / 12) - 1}`,
       frequency: 440 * Math.pow(2, (midi - 69) / 12),
+      beats: Number.isFinite(position.beats) && position.beats > 0 ? position.beats : 0.5,
       section: position.section || ''
     };
   }
 
-  /** Griffmuster des Californication-Intros: 1–5–8–10–12–10–8–5 (Saiten 1–5). */
+  /** Griffmuster des Californication-Intros: Am-Arpeggio in Achteln. */
   const AM_ARPEGGIO = [
     [1, 0], // A2
     [2, 2], // E3
@@ -58,19 +59,23 @@
     [2, 2]  // E3
   ];
 
+  /**
+   * F-Dur-Arpeggio des Intros. Beginnt – wie im Original – auf dem tiefen F2
+   * (tiefe E-Saite, 1. Bund), nicht auf der Quinte C3.
+   */
   const F_ARPEGGIO = [
+    [0, 1], // F2
     [1, 3], // C3
     [2, 3], // F3
     [3, 2], // A3
     [4, 1], // C4
-    [5, 1], // F4
-    [4, 1], // C4
     [3, 2], // A3
-    [2, 3]  // F3
+    [2, 3], // F3
+    [1, 3]  // C3
   ];
 
   function arpeggio(pattern, section) {
-    return pattern.map(([string, fret]) => ({ string, fret, section }));
+    return pattern.map(([string, fret]) => ({ string, fret, section, beats: 0.5 }));
   }
 
   const RIFF_DEFINITIONS = [
@@ -78,21 +83,22 @@
       id: 'seven-nation-army',
       title: 'Seven Nation Army',
       artist: 'The White Stripes',
-      bpm: 124,
+      bpm: 120,
       timeSignature: '4/4',
       difficulty: 'Anfänger',
       rootPc: 4, // E
-      description: 'Der Haupt-Riff als sieben Einzelnoten auf der tiefen E-Saite. ' +
-        'Auf der Aufnahme klingt das Riff eine Oktave tiefer (Whammy-Pedal) – ' +
-        'diese Lage trifft dieselben Töne ohne Effektgerät.',
+      previewOctave: -1,
+      description: 'Der Haupt-Riff auf der A-Saite im Originaltempo (120 BPM). ' +
+        'Die Aufnahme nutzt ein Whammy-Pedal eine Oktave tiefer – das Vorspielen ' +
+        'klingt deshalb eine Oktave unter den angezeigten Griffen.',
       notes: [
-        { string: 0, fret: 0, section: 'Riff' },  // E2
-        { string: 0, fret: 0, section: 'Riff' },  // E2
-        { string: 0, fret: 3, section: 'Riff' },  // G2
-        { string: 0, fret: 0, section: 'Riff' },  // E2
-        { string: 0, fret: 10, section: 'Riff' }, // D3
-        { string: 0, fret: 8, section: 'Riff' },  // C3
-        { string: 0, fret: 7, section: 'Riff' }   // B2
+        { string: 1, fret: 7, section: 'Riff', beats: 0.5 },  // E3
+        { string: 1, fret: 7, section: 'Riff', beats: 0.5 },  // E3
+        { string: 1, fret: 10, section: 'Riff', beats: 0.5 }, // G3
+        { string: 1, fret: 7, section: 'Riff', beats: 0.5 },  // E3
+        { string: 1, fret: 5, section: 'Riff', beats: 0.5 },  // D3
+        { string: 1, fret: 3, section: 'Riff', beats: 0.5 },  // C3
+        { string: 1, fret: 2, section: 'Riff', beats: 1.0 }   // B2 (klingt aus)
       ]
     },
     {
@@ -147,6 +153,12 @@
 
   function riffFrequencies(riff) {
     return riff.notes.map((note) => note.frequency);
+  }
+
+  /** Frequenzen fürs Vorspielen – ggf. eine Oktave tiefer als notiert. */
+  function riffPlaybackFrequencies(riff) {
+    const factor = Math.pow(2, Number(riff.previewOctave) || 0);
+    return riff.notes.map((note) => note.frequency * factor);
   }
 
   /** Sichtbare Bünde: so viele wie nötig, mindestens fünf, höchstens zwölf. */
@@ -241,6 +253,7 @@
     stringDescription,
     riffPositions,
     riffFrequencies,
+    riffPlaybackFrequencies,
     displayedFrets,
     renderRiffFretboard
   };

@@ -36,6 +36,7 @@
     getRiff,
     riffLabel,
     stringDescription,
+    riffPlaybackFrequencies,
     renderRiffFretboard,
     RIFF_STRING_NAMES,
     nearestStringIndex,
@@ -133,6 +134,7 @@
     songScore: document.getElementById('songScore'),
     songBpmSlider: document.getElementById('songBpmSlider'),
     songBpmValue: document.getElementById('songBpmValue'),
+    songListenBtn: document.getElementById('songListenBtn'),
     songBeatDots: document.getElementById('songBeatDots'),
     songStart: document.getElementById('songStart'),
     songStop: document.getElementById('songStop'),
@@ -255,7 +257,10 @@
       lastAttemptAt: 0,
       feedbackUntil: 0,
       barChangedAt: 0,
-      beatTimeout: null
+      beatTimeout: null,
+      listenActive: false,
+      listenTimers: [],
+      listenToken: 0
     },
     running: false,
     cagedRootPc: storedPrefs.cagedRoot,
@@ -1568,18 +1573,32 @@
     if (state.riff.active) return;
     const riff = currentRiff();
     const beatSec = 60 / riff.bpm;
-    const noteSec = Math.max(0.12, beatSec * 0.46);
-    const gapSec = Math.max(0.01, beatSec * 0.04);
+    const playbackFrequencies = riffPlaybackFrequencies(riff);
+    const steps = [];
+    const startTimes = [];
+    let beatPosition = 0;
+
+    riff.notes.forEach((note, index) => {
+      const startSec = beatPosition * beatSec;
+      // Jeder Ton klingt bis zum nächsten Anschlag weiter; die Gitarre
+      // übernimmt den Rhythmus aus `note.beats`.
+      const durationSec = Math.max(0.12, Math.min(2.1, note.beats * beatSec * 1.15));
+      steps.push({
+        frequency: playbackFrequencies[index],
+        startSec,
+        durationSec,
+        gain: 1
+      });
+      startTimes.push(startSec);
+      beatPosition += note.beats;
+    });
 
     clearRiffPreviewTimers();
     els.riffPreviewBtn.disabled = true;
 
     let duration = 0;
     try {
-      duration = await engine.playToneSequence(
-        riff.notes.map((note) => note.frequency),
-        { noteSec, gapSec }
-      );
+      duration = await engine.playTimedSequence(steps, { peak: 0.5 });
     } catch (error) {
       els.riffPreviewBtn.disabled = false;
       toast('Vorspielen war nicht möglich.');
@@ -1594,7 +1613,7 @@
         if (chip) chip.classList.add('is-playing');
         els.riffFretboard.querySelectorAll(`[data-pos="${note.string}-${note.fret}"]`)
           .forEach((element) => element.classList.add('is-playing'));
-      }, Math.max(0, index * (noteSec + gapSec) * 1000));
+      }, Math.max(0, startTimes[index] * 1000));
       state.riff.previewTimers.push(timer);
     });
 
@@ -1856,6 +1875,130 @@
     if (songMetronome.playing) songMetronome.setBpm(tempo);
   }
 
+  /* ---------- Song anhören ---------- */
+
+  function clearSongListenTimers() {
+    state.song.listenTimers.forEach((timer) => window.clearTimeout(timer));
+    state.song.listenTimers = [];
+  }
+
+  function setSongListenButton(active) {
+    if (!els.songListenBtn) return;
+    els.songListenBtn.textContent = active ? 'Wiedergabe stoppen' : 'Song anhören';
+    els.songListenBtn.setAttribute('aria-pressed', String(active));
+    els.songListenBtn.classList.toggle('is-playing', active);
+    els.songListenBtn.disabled = state.song.active;
+    els.songSelect.disabled = active || state.song.active;
+    els.songBpmSlider.disabled = active || state.song.active;
+    els.songStart.disabled = active;
+  }
+
+  function stopSongListen() {
+    state.song.listenToken += 1;
+    clearSongListenTimers();
+    engine.stopToneSequence();
+    const wasActive = state.song.listenActive;
+    state.song.listenActive = false;
+    state.song.barIndex = 0;
+    setSongListenButton(false);
+    clearSongBeatDots();
+    if (wasActive || !state.song.active) {
+      renderSongBar();
+    }
+    if (!state.song.active) {
+      setSongStatus('Bereit zum Anhören', '');
+      els.songHint.textContent = 'Höre dir die Akkordfolge an oder starte das Mitspielen.';
+    }
+  }
+
+  async function startSongListen() {
+    if (state.song.listenActive) return;
+    if (state.song.active) stopSong();
+
+    const song = currentSong();
+    const bpm = state.song.tempo;
+    const beatSec = 60 / bpm;
+    const barSec = beatSec * 4;
+    const strumGains = [1, 0.5, 0.78, 0.5, 0.95, 0.5, 0.78, 0.55];
+    const steps = [];
+
+    song.bars.forEach((chordId, barIndex) => {
+      const chord = CHORDS[chordId];
+      if (!chord) return;
+      const frequencies = chordFrequencies(chord);
+      for (let eighth = 0; eighth < 8; eighth += 1) {
+        const strumStart = barIndex * barSec + eighth * (beatSec / 2);
+        const offbeat = eighth % 2 === 1;
+        const ring = offbeat ? beatSec * 0.45 : beatSec * 1.15;
+        frequencies.forEach((frequency, stringIndex) => {
+          steps.push({
+            frequency,
+            startSec: strumStart + stringIndex * 0.028,
+            durationSec: Math.min(1.8, ring),
+            gain: strumGains[eighth]
+          });
+        });
+      }
+    });
+
+    clearSongListenTimers();
+    state.song.listenToken += 1;
+    const token = state.song.listenToken;
+    state.song.listenActive = true;
+    state.song.barIndex = 0;
+    setSongListenButton(true);
+    renderSongBar();
+    resetSongMeter();
+    setSongStatus('Wiedergabe läuft …', 'listening');
+    els.songHint.textContent = `${song.title} · ${bpm} BPM – hör dir die Akkordfolge an.`;
+
+    let duration = 0;
+    try {
+      duration = await engine.playTimedSequence(steps, { peak: 0.16, lead: 0.1 });
+    } catch (error) {
+      stopSongListen();
+      toast('Song konnte nicht abgespielt werden.');
+      return;
+    }
+
+    if (token !== state.song.listenToken) return;
+
+    song.bars.forEach((_, barIndex) => {
+      const barTimer = window.setTimeout(() => {
+        if (token !== state.song.listenToken || !state.song.listenActive) return;
+        state.song.barIndex = barIndex;
+        renderSongBar();
+        setSongStatus(`Wiedergabe · Takt ${barIndex + 1} / ${song.bars.length}`, 'listening');
+      }, Math.max(0, barIndex * barSec * 1000 + 100));
+      state.song.listenTimers.push(barTimer);
+
+      for (let beat = 0; beat < 4; beat += 1) {
+        const beatTimer = window.setTimeout(() => {
+          if (token !== state.song.listenToken || !state.song.listenActive) return;
+          updateSongBeatDots(beat);
+        }, Math.max(0, (barIndex * 4 + beat) * beatSec * 1000 + 100));
+        state.song.listenTimers.push(beatTimer);
+      }
+    });
+
+    const endTimer = window.setTimeout(() => {
+      if (token !== state.song.listenToken) return;
+      stopSongListen();
+      setSongStatus('Wiedergabe beendet', 'good');
+      els.songHint.textContent = 'Nochmal anhören oder direkt mitspielen.';
+    }, Math.max(500, duration * 1000 + 150));
+    state.song.listenTimers.push(endTimer);
+  }
+
+  function toggleSongListen() {
+    if (state.song.listenActive) {
+      stopSongListen();
+      setSongStatus('Wiedergabe gestoppt', '');
+      return;
+    }
+    startSongListen();
+  }
+
   function buildSongOptions() {
     els.songSelect.textContent = '';
     SONGS.forEach((song) => {
@@ -1919,6 +2062,7 @@
 
   function initSongView() {
     const song = currentSong();
+    stopSongListen();
     state.song.songId = song.id;
     if (!Number.isFinite(state.song.tempo) || state.song.tempo <= 0) {
       state.song.tempo = song.bpm;
@@ -1932,13 +2076,14 @@
     els.songStart.hidden = false;
     els.songStart.textContent = 'Mitspielen starten';
     els.songStop.hidden = true;
-    els.songHint.textContent = 'Spiele die Akkorde im Takt mit. Der Klick läuft mit; die Erkennung prüft jeden Akkord.';
+    els.songHint.textContent = '„Song anhören“ spielt die Akkordfolge; „Mitspielen starten“ startet Klick und Akkordprüfung.';
     setSongTempo(state.song.tempo);
     renderSongBar();
     renderSongTimeline();
     renderSongScore();
     resetSongMeter();
     clearSongBeatDots();
+    setSongListenButton(false);
     setSongStatus('Bereit zum Mitspielen', '');
   }
 
@@ -2051,6 +2196,7 @@
       return;
     }
     const song = currentSong();
+    stopSongListen();
     songMetronome.stop();
 
     state.song.active = true;
@@ -2060,6 +2206,7 @@
     state.song.started = false;
     state.song.feedbackUntil = 0;
     state.song.barChangedAt = 0;
+    setSongListenButton(false);
 
     engine.setChordOrder(song.chordOrder);
     engine.setMode('chords');
@@ -2071,7 +2218,7 @@
     els.songStop.hidden = false;
     els.songControls.classList.remove('is-good');
     els.songControls.classList.remove('is-warn');
-    els.songHint.textContent = 'Spiele die Akkorde im Takt mit. Der Klick läuft mit; die Erkennung prüft jeden Akkord.';
+    els.songHint.textContent = '„Song anhören“ spielt die Akkordfolge; „Mitspielen starten“ startet Klick und Akkordprüfung.';
     renderSongBar();
     renderSongScore();
     resetSongMeter();
@@ -2096,6 +2243,7 @@
   }
 
   function stopSong() {
+    if (state.song.listenActive) stopSongListen();
     state.song.active = false;
     state.song.started = false;
     state.song.barIndex = 0;
@@ -2114,10 +2262,11 @@
       els.songStart.textContent = 'Mitspielen starten';
       els.songStop.hidden = true;
       els.songSelect.disabled = false;
+      setSongListenButton(false);
       renderSongBar();
       if (els.songTimeline.children.length) updateSongTimeline();
       setSongStatus('Bereit zum Mitspielen', '');
-      els.songHint.textContent = 'Spiele die Akkorde im Takt mit. Der Klick läuft mit; die Erkennung prüft jeden Akkord.';
+      els.songHint.textContent = '„Song anhören“ spielt die Akkordfolge; „Mitspielen starten“ startet Klick und Akkordprüfung.';
     }
   }
 
@@ -2417,6 +2566,7 @@
       setSongTempo(event.target.value);
     });
     els.songStart.addEventListener('click', () => { startSong(); });
+    els.songListenBtn.addEventListener('click', toggleSongListen);
     els.songStop.addEventListener('click', () => {
       stopSong();
       toast('Song gestoppt');

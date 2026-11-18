@@ -13,23 +13,23 @@
   <link rel="manifest" href="manifest.json">
   <link rel="icon" href="icons/favicon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="icons/icon-180.png">
-  <link rel="stylesheet" href="css/styles.css?v=1.7.1">
-  <script src="js/chords.js?v=1.7.1" defer></script>
-  <script src="js/detection.js?v=1.7.1" defer></script>
-  <script src="js/pitch.js?v=1.7.1" defer></script>
-  <script src="js/tuning.js?v=1.7.1" defer></script>
-  <script src="js/stats.js?v=1.7.1" defer></script>
-  <script src="js/prefs.js?v=1.7.1" defer></script>
-  <script src="js/pentatonic.js?v=1.7.1" defer></script>
-  <script src="js/riffs.js?v=1.7.1" defer></script>
-  <script src="js/songs.js?v=1.7.1" defer></script>
-  <script src="js/about.js?v=1.7.1" defer></script>
-  <script src="js/fretboard.js?v=1.7.1" defer></script>
-  <script src="js/caged.js?v=1.7.1" defer></script>
-  <script src="js/guitar-synth.js?v=1.7.1" defer></script>
-  <script src="js/metronome.js?v=1.7.1" defer></script>
-  <script src="js/audio.js?v=1.7.1" defer></script>
-  <script src="js/app.js?v=1.7.1" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=1.8.0">
+  <script src="js/chords.js?v=1.8.0" defer></script>
+  <script src="js/detection.js?v=1.8.0" defer></script>
+  <script src="js/pitch.js?v=1.8.0" defer></script>
+  <script src="js/tuning.js?v=1.8.0" defer></script>
+  <script src="js/stats.js?v=1.8.0" defer></script>
+  <script src="js/prefs.js?v=1.8.0" defer></script>
+  <script src="js/pentatonic.js?v=1.8.0" defer></script>
+  <script src="js/riffs.js?v=1.8.0" defer></script>
+  <script src="js/songs.js?v=1.8.0" defer></script>
+  <script src="js/about.js?v=1.8.0" defer></script>
+  <script src="js/fretboard.js?v=1.8.0" defer></script>
+  <script src="js/caged.js?v=1.8.0" defer></script>
+  <script src="js/guitar-synth.js?v=1.8.0" defer></script>
+  <script src="js/metronome.js?v=1.8.0" defer></script>
+  <script src="js/audio.js?v=1.8.0" defer></script>
+  <script src="js/app.js?v=1.8.0" defer></script>
 </head>
 <body>
   <header class="app-header">
@@ -447,10 +447,11 @@
             <span class="beat-dot"></span>
           </div>
 
+          <button id="songListenBtn" class="btn btn-secondary btn-full" type="button" aria-pressed="false">Song anhören</button>
           <button id="songStart" class="btn btn-primary btn-full" type="button">Mitspielen starten</button>
           <button id="songStop" class="btn btn-secondary btn-full" type="button" hidden>Stoppen</button>
           <p id="songHint" class="chord-tip song-hint">
-            Spiele die Akkorde im Takt mit. Der Klick läuft mit; die Erkennung prüft jeden Akkord.
+            „Song anhören“ spielt die Akkordfolge; „Mitspielen starten“ startet Klick und Akkordprüfung.
           </p>
         </section>
       </div>
@@ -558,7 +559,7 @@
 
       <div class="about-block">
         <p class="fineprint version">
-          Version <span id="appVersion">1.7.1</span> · Läuft vollständig offline
+          Version <span id="appVersion">1.8.0</span> · Läuft vollständig offline
         </p>
         <a id="repoLink" class="btn btn-secondary btn-full"
            href="https://github.com/TheRealBob52427/guitar-chord-trainer"
