@@ -454,7 +454,7 @@ auch ohne TLS. Der Service Worker wird ebenfalls auf localhost registriert.
 
 - **Cache aktualisieren**: Nach Änderungen an Dateien in `app/` die
   `CACHE_VERSION` in `app/sw.js` erhöhen **und** die Versions-Query in
-  `app/index.html` sowie in der Precache-Liste anpassen (z. B. `?v=1.7.0`).
+  `app/index.html` sowie in der Precache-Liste anpassen (z. B. `?v=1.7.1`).
   So können installierte Clients nicht neues HTML mit altem JavaScript
   mischen.
 - **Icons neu generieren**: `python3 tools/generate_icons.py` (benötigt Pillow).
@@ -488,9 +488,9 @@ auch ohne TLS. Der Service Worker wird ebenfalls auf localhost registriert.
 - **USB-Adapter fehlt**: Adapter anschließen, Settings öffnen, „Geräte neu
   laden“. Bei Linux ggf. `arecord -l` prüfen.
 - **Tabs reagieren nicht / alte Version**: Im Settings-Sheet muss **Version
-  1.7.0** stehen. Nach einem Image-Update `docker compose build --no-cache &&
+  1.7.1** stehen. Nach einem Image-Update `docker compose build --no-cache &&
   docker compose up -d` ausführen, die PWA schließen und neu öffnen. HTML und
-  JavaScript sind mit `?v=1.7.0` versioniert, damit kein altes JS aus dem
+  JavaScript sind mit `?v=1.7.1` versioniert, damit kein altes JS aus dem
   Browser- oder Service-Worker-Cache geladen wird.
 - **Pentatonik-Übung zählt nicht weiter**: Töne einzeln und mit kurzer Pause
   spielen; bei wiederholtem gleichem Ton kurz abdämpfen. Die App prüft die

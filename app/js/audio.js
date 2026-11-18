@@ -242,7 +242,19 @@
 
       const render = global.ChordTrainer.renderPluckedString;
       if (typeof render !== 'function') return null;
-      buffer = render(frequency, sampleRate, { duration: 2.2 });
+
+      // renderPluckedString liefert rohe Float32-Samples. Eine
+      // AudioBufferSourceNode akzeptiert aber nur ein echtes AudioBuffer-
+      // Objekt; die direkte Zuweisung eines Float32Array wirft im Browser
+      // einen TypeError.
+      const samples = render(frequency, sampleRate, { duration: 2.2 });
+      buffer = this.ctx.createBuffer(1, samples.length, sampleRate);
+      if (typeof buffer.copyToChannel === 'function') {
+        buffer.copyToChannel(samples, 0);
+      } else {
+        buffer.getChannelData(0).set(samples);
+      }
+
       this._pluckCache.set(key, buffer);
       if (this._pluckCache.size > 64) {
         const oldest = this._pluckCache.keys().next().value;
