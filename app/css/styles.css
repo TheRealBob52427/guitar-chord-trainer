@@ -865,7 +865,7 @@ code {
 
 .mode-switch {
   display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-columns: repeat(7, minmax(0, 1fr));
   gap: 4px;
   margin: 0 0 14px;
   padding: 4px;
@@ -2148,13 +2148,165 @@ code {
   }
 }
 
+/* ---------- Play-Along ---------- */
+
+.play-import {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: end;
+  margin-top: 14px;
+}
+
+.play-file-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 42px;
+  text-align: center;
+  cursor: pointer;
+}
+
+.play-track-field {
+  min-width: 140px;
+}
+
+.play-track-field .select {
+  min-height: 42px;
+  margin: 0;
+  padding: 8px 10px;
+  font-size: 12px;
+}
+
+.play-info {
+  margin-top: 10px;
+}
+
+.play-mode-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: end;
+  margin-top: 14px;
+}
+
+.play-speed-field {
+  min-width: 72px;
+  text-align: right;
+}
+
+.play-speed-field output {
+  color: var(--text);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.play-highway {
+  position: relative;
+  height: 380px;
+  margin: 14px 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #0b0b16;
+  overflow: hidden;
+}
+
+.play-highway canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.play-readout {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.play-current {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.play-target {
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+}
+
+.play-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  margin-top: 10px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--muted);
+  font-size: 11px;
+  text-align: center;
+}
+
+.play-stats strong {
+  color: var(--text);
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+}
+
+.play-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.play-hint {
+  margin-top: 10px;
+}
+
+.play-card.is-good {
+  border-color: rgba(74, 222, 128, 0.55);
+  box-shadow: 0 0 0 1px rgba(74, 222, 128, 0.25), var(--shadow);
+}
+
+.play-card.pulse {
+  animation: successPulse 0.7s ease;
+}
+
+@media (max-width: 599px) {
+  .play-highway {
+    height: 330px;
+  }
+  .play-target {
+    font-size: 24px;
+  }
+}
+
+@media (max-width: 380px) {
+  .play-import,
+  .play-mode-row {
+    grid-template-columns: 1fr;
+  }
+  .play-track-field,
+  .play-speed-field {
+    min-width: 0;
+    text-align: left;
+  }
+}
+
 /* ---------- Responsive / motion ---------- */
 
 @media (max-width: 599px) {
-  /* Sechs Modi: auf schmalen Displays zwei Reihen à drei, damit die
-     Beschriftungen nicht abgeschnitten werden. */
+  /* Sieben Modi: auf schmalen Displays vier Spalten, die letzte Zeile
+     bleibt optisch geschlossen. */
   .mode-switch {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 }
 

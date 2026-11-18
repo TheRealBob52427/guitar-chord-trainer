@@ -24,6 +24,8 @@ test('Default-Einstellungen sind vollständig', () => {
     tunerAuto: false,
     scale: { rootPc: 9, type: 'minor', pattern: 1, repeats: 1, backward: false },
     cagedRoot: 9,
+    playMode: 'timed',
+    playSpeed: 100,
     riffId: 'seven-nation-army',
     deviceId: ''
   });
@@ -32,6 +34,7 @@ test('Default-Einstellungen sind vollständig', () => {
 test('Song-, Riff- und Hilfe-Modus sind gültige persistierte Modi', () => {
   assert.equal(Prefs.normalizePrefs({ mode: 'song' }).mode, 'song');
   assert.equal(Prefs.normalizePrefs({ mode: 'riff' }).mode, 'riff');
+  assert.equal(Prefs.normalizePrefs({ mode: 'play' }).mode, 'play');
   assert.equal(Prefs.normalizePrefs({ mode: 'help' }).mode, 'help');
 });
 
@@ -44,6 +47,8 @@ test('Einstellungen überleben Speichern und Laden', () => {
     tunerAuto: true,
     scale: { rootPc: 4, type: 'major', pattern: 4, repeats: 3, backward: true },
     cagedRoot: 2,
+    playMode: 'wait',
+    playSpeed: 70,
     riffId: 'californication',
     deviceId: 'device-abc'
   };
@@ -70,12 +75,17 @@ test('Ungültige Werte werden begrenzt oder ersetzt', () => {
   assert.equal(normalized.scale.repeats, 1);
   assert.equal(normalized.scale.backward, false);
   assert.equal(normalized.cagedRoot, 9);
+  assert.equal(normalized.playMode, 'timed');
+  assert.equal(normalized.playSpeed, 100);
   assert.equal(normalized.riffId, 'seven-nation-army');
   assert.equal(normalized.deviceId, '');
 
   const low = Prefs.normalizePrefs({ bpm: 1, scale: { repeats: 9 } });
   assert.equal(low.bpm, 40);
   assert.equal(low.scale.repeats, 4);
+  assert.equal(Prefs.normalizePrefs({ playSpeed: 10 }).playSpeed, 50);
+  assert.equal(Prefs.normalizePrefs({ playSpeed: 200 }).playSpeed, 100);
+  assert.equal(Prefs.normalizePrefs({ playMode: 'wait' }).playMode, 'wait');
 });
 
 test('Alte attacks-Einstellung wird ignoriert, neue Werte bleiben gültig', () => {

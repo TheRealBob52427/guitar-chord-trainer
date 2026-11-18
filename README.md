@@ -86,6 +86,10 @@ Betrieb bleibt das Image unverändert.
   **Wonderwall** (Oasis), **Don’t Look Back in Anger** (Oasis) und
   **When I Come Around** (Green Day), jeweils als Acht-Takt-Loop,
   Tempo 50–120 BPM, ohne Capo.
+- **Play-Along (Real Instrument)**: Guitar-Pro-Import (`.gp`, `.gp3`,
+  `.gp4`, `.gp5`, `.gpx`), Track-Auswahl, scrollender Noten-Highway,
+  Trefferbewertung **im Takt** oder **Note für Note** (das Lied wartet),
+  Tempo 50–100 %, Klick und Live-Statistik.
 - **Statistik** pro Akkord (Treffer/Versuche) in `localStorage`, mit
   Gesamtquote, Reset und **CSV-Export** im Settings-Sheet.
 - **Einstellungen** mit Versionsanzeige der PWA, Link zum
@@ -123,10 +127,13 @@ Betrieb bleibt das Image unverändert.
    „Song anhören“ die Akkordfolge als E-Gitarre abspielen. „Mitspielen
    starten“ startet danach den Klick und die Akkordprüfung; die App zeigt den
    aktuellen und nächsten Akkord und prüft die gespielten Akkorde.
-7. Im Tab **Hilfe** erklärt die App alle verwendeten Griffbrett-Notationen:
+7. Im Tab **Spielen** eine Guitar-Pro-Datei importieren oder das Demo nutzen.
+   Track wählen, „Im Takt“ oder „Note für Note“ aktivieren und „Spiel starten“.
+   Der Highway zeigt die Noten; die App prüft Pitch-Class bzw. Akkordtöne.
+8. Im Tab **Hilfe** erklärt die App alle verwendeten Griffbrett-Notationen:
    offene und gedämpfte Saiten, Fingernummern, Bundnummern, Grundton-Markierung
    und Zielton-Hervorhebung.
-8. Im Settings-Sheet (Regler-Symbol) Audio-Eingang wählen, die Statistik
+9. Im Settings-Sheet (Regler-Symbol) Audio-Eingang wählen, die Statistik
    einsehen, als CSV exportieren oder zurücksetzen.
 
 ## Projektstruktur
@@ -144,6 +151,8 @@ Betrieb bleibt das Image unverändert.
 │   │   ├── pentatonic.js   # Skalen, fünf Pattern, Übungsfolgen, Griffbrett-SVG
 │   │   ├── caged.js        # CAGED-Formen und Transposition
 │   │   ├── guitar-synth.js # Karplus-Strong-E-Gitarre als AudioBuffer
+│   │   ├── playalong.js    # Charts, Guitar-Pro-Import, Spiel-/Scoring-Logik
+│   │   ├── vendor/         # guitarpro-parser (Apache-2.0) + fflate (MIT)
 │   │   ├── riffs.js        # Riff-Bibliothek für Einzelnoten + Griffbrett-SVG
 │   │   ├── songs.js        # Song-Bibliothek und Akkord-Timing
 │   │   ├── stats.js        # Statistik-Persistenz, Migration, CSV-Export
@@ -254,6 +263,7 @@ Einstellungen im Browser:
 - **Pentatonik**: Grundton, Moll/Dur, Wiederholungen pro Ton (1–4) und
   Rückwärts-Option
 - **Riff**: zuletzt gewähltes Riff im Einzelnoten-Modus
+- **Play-Along**: Modus (Im Takt/Note für Note) und Tempo
 - **Stimmgerät**: Zielsaite und Auto-Erkennung
 - **Audio-Gerät** (Device-ID; bei nicht mehr vorhandenem Gerät wird auf den
   Standardeingang zurückgefallen)
@@ -405,6 +415,41 @@ mit derselben Chroma-Erkennung wie der Trainer.
 - **Inhalte**: Es werden keine Originalaufnahmen, Lyrics oder Melodien
   eingebunden – nur Akkordfolge, Timing und ein synthetischer Klick.
 
+## Play-Along (Real Instrument)
+
+Der Tab **Spielen** ist ein StringTheory-inspirierter Real-Instrument-Modus:
+Noten laufen auf einem Highway auf die Trefferlinie zu, die App hört über
+Mikrofon/USB-Interface zu und bewertet die gespielten Töne.
+
+- **Import**: Guitar Pro (`.gp`, `.gp3`, `.gp4`, `.gp5`, `.gpx`) über den
+  Datei-Button. Der Parser liest Tracks, Stimmungen, Wiederholungen,
+  Alternativ-Endings, Tempoänderungen und Taktarten; die Noten werden über
+  `scheduleTrack` in absolute Zeitpositionen umgerechnet.
+- **Tracks**: Alle Stringed-Tracks (Gitarre/Bass) stehen zur Auswahl; die App
+  wählt bevorzugt Lead-/Rhythmusgitarren. Jeder Track kann eigene Stimmungen
+  und Saitenzahlen (4–7) haben.
+- **Highway**: Canvas mit einer Lane pro Saite, absoluten Saitennamen,
+  Trefferlinie, Count-in und farbigen Notenblöcken. Akkorde werden als
+  verbundene Blöcke über mehrere Saiten dargestellt.
+- **Im Takt**: Die Uhr läuft; Treffer werden mit ±60 ms als „Perfekt“,
+  ±130 ms als „Gut“ und ±180/220 ms als „Okay“ bzw. verpasst gewertet.
+  Combo, Punkte, Genauigkeit und Fortschritt werden live angezeigt.
+- **Note für Note**: Die Zeit steht am aktuellen Event. Das Lied wartet, bis
+  die richtige Pitch-Class (bei Akkorden alle enthaltenen Töne) gespielt
+  wurde, und springt dann zum nächsten Event. Es gibt keine Zeitfehler.
+- **Erkennung**: Einzelnoten über YIN, Akkorde über das Chromagramm. Nach
+  einem Treffer muss der Ton abklingen oder ein anderer Ton kommen, damit
+  derselbe Anschlag nicht mehrfach zählt.
+- **Tempo & Klick**: 50–100 % Geschwindigkeit; der Klick nutzt das Starttempo
+  des Songs. Der Highway scrollt entsprechend langsamer.
+- **Demo**: Ohne Import steht ein Seven-Nation-Army-Riff als Übungschart
+  bereit.
+- **Grenzen**: Die App spielt keine Originalaufnahmen und keine synthetische
+  Backing-Spur ab – gespielt wird zum Klick/Highway. Importierte Charts leben
+  nur im Speicher und müssen nach einem Reload erneut geladen werden.
+- **Lizenz**: Der vendored Parser `guitarpro-parser` steht unter Apache-2.0,
+  `fflate` unter MIT; die Lizenztexte liegen unter `app/js/vendor/`.
+
 ## Hilfe-Modus
 
 Der Tab **Hilfe** erklärt die in der App verwendeten Griffbrett-Notationen und
@@ -437,6 +482,8 @@ eine echte FFT aus und prüfen unter anderem:
   des Griffbretts auf das ausgewählte Pattern**,
 - **CAGED-Formen für alle zwölf Grundtöne und absolute Bundzahlen**,
 - **Karplus-Strong-Gitarre: Bufferlänge, Grundfrequenz, Determinismus**,
+- **Play-Along: Guitar-Pro-Import (.gp4/.gp5/.gp/.gpx), Chart-Erzeugung,
+  Timing-Fenster, Combo/Genauigkeit und der wartende Note-by-Note-Modus**,
 - Riff-Bibliothek, Notenpositionen, Frequenzen und Griffbrett-SVG,
 - Song-Bibliothek, alle Song-Loops und die neuen Griffe,
 - Einstellungs-Persistenz inkl. Validierung und Grenzwerten,
@@ -460,7 +507,7 @@ auch ohne TLS. Der Service Worker wird ebenfalls auf localhost registriert.
 
 - **Cache aktualisieren**: Nach Änderungen an Dateien in `app/` die
   `CACHE_VERSION` in `app/sw.js` erhöhen **und** die Versions-Query in
-  `app/index.html` sowie in der Precache-Liste anpassen (z. B. `?v=1.8.0`).
+  `app/index.html` sowie in der Precache-Liste anpassen (z. B. `?v=1.9.0`).
   So können installierte Clients nicht neues HTML mit altem JavaScript
   mischen.
 - **Icons neu generieren**: `python3 tools/generate_icons.py` (benötigt Pillow).
@@ -494,9 +541,9 @@ auch ohne TLS. Der Service Worker wird ebenfalls auf localhost registriert.
 - **USB-Adapter fehlt**: Adapter anschließen, Settings öffnen, „Geräte neu
   laden“. Bei Linux ggf. `arecord -l` prüfen.
 - **Tabs reagieren nicht / alte Version**: Im Settings-Sheet muss **Version
-  1.8.0** stehen. Nach einem Image-Update `docker compose build --no-cache &&
+  1.9.0** stehen. Nach einem Image-Update `docker compose build --no-cache &&
   docker compose up -d` ausführen, die PWA schließen und neu öffnen. HTML und
-  JavaScript sind mit `?v=1.8.0` versioniert, damit kein altes JS aus dem
+  JavaScript sind mit `?v=1.9.0` versioniert, damit kein altes JS aus dem
   Browser- oder Service-Worker-Cache geladen wird.
 - **Pentatonik-Übung zählt nicht weiter**: Töne einzeln und mit kurzer Pause
   spielen; bei wiederholtem gleichem Ton kurz abdämpfen. Die App prüft die

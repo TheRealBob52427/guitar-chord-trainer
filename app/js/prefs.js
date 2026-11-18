@@ -8,7 +8,7 @@
   'use strict';
 
   const STORAGE_KEY = 'guitarTrainer.prefs.v1';
-  const MODES = ['trainer', 'tuner', 'pentatonic', 'riff', 'song', 'help'];
+  const MODES = ['trainer', 'tuner', 'pentatonic', 'riff', 'song', 'play', 'help'];
   const SCALE_TYPES = ['minor', 'major'];
 
   const DEFAULTS = Object.freeze({
@@ -24,6 +24,8 @@
       backward: false
     }),
     cagedRoot: 9,
+    playMode: 'timed',
+    playSpeed: 100,
     riffId: 'seven-nation-army',
     deviceId: ''
   });
@@ -55,6 +57,8 @@
         backward: scale.backward === true
       },
       cagedRoot: clampInteger(source.cagedRoot, 0, 11, DEFAULTS.cagedRoot),
+      playMode: source.playMode === 'wait' ? 'wait' : DEFAULTS.playMode,
+      playSpeed: clampInteger(source.playSpeed, 50, 100, DEFAULTS.playSpeed),
       riffId,
       deviceId
     };

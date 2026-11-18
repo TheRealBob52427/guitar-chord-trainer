@@ -14,6 +14,7 @@
       this.onError = options.onError || function () {};
       this.onTrackEnded = options.onTrackEnded || function () {};
       this.onPitchUpdate = options.onPitchUpdate || function () {};
+      this.onGameUpdate = options.onGameUpdate || function () {};
 
       this.ctx = null;
       this.stream = null;
@@ -211,7 +212,7 @@
     }
 
     setMode(mode) {
-      this.mode = (mode === 'tuner' || mode === 'scale') ? mode : 'chords';
+      this.mode = (mode === 'tuner' || mode === 'scale' || mode === 'game') ? mode : 'chords';
       this._pitchTick = 0;
       if (this.mode === 'chords') this.matcher.reset();
     }
@@ -452,15 +453,30 @@
       const levelDb = 20 * Math.log10(Math.max(rms, 1e-8));
       const silent = levelDb < SILENCE_DB;
 
-      if (this.mode === 'tuner' || this.mode === 'scale') {
+      if (this.mode === 'tuner' || this.mode === 'scale' || this.mode === 'game') {
         // Stimmgerät: 10 Updates/s reichen für einen ruhigen Zeiger.
-        // Übungsmodus: 20 Updates/s, damit Anschläge sicher erkannt werden.
-        const every = this.mode === 'scale' ? 1 : 2;
+        // Übungs-/Spielmodus: 20 Updates/s, damit Anschläge sicher erkannt werden.
+        const every = this.mode === 'tuner' ? 2 : 1;
         this._pitchTick = (this._pitchTick + 1) % every;
         if (this._pitchTick !== 0) return;
         const pitch = silent
           ? null
           : global.ChordTrainer.detectPitch(this.timeData, this.ctx.sampleRate);
+        if (this.mode === 'game') {
+          const chroma = silent ? null : global.ChordTrainer.computeChroma(
+            this.freqData,
+            this.ctx.sampleRate,
+            this.analyser.fftSize
+          );
+          this.onGameUpdate({
+            levelDb: Math.max(-100, levelDb),
+            silent,
+            pitch,
+            chroma,
+            mode: 'game'
+          });
+          return;
+        }
         this.onPitchUpdate({
           levelDb: Math.max(-100, levelDb),
           silent,

@@ -13,23 +13,25 @@
   <link rel="manifest" href="manifest.json">
   <link rel="icon" href="icons/favicon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="icons/icon-180.png">
-  <link rel="stylesheet" href="css/styles.css?v=1.8.0">
-  <script src="js/chords.js?v=1.8.0" defer></script>
-  <script src="js/detection.js?v=1.8.0" defer></script>
-  <script src="js/pitch.js?v=1.8.0" defer></script>
-  <script src="js/tuning.js?v=1.8.0" defer></script>
-  <script src="js/stats.js?v=1.8.0" defer></script>
-  <script src="js/prefs.js?v=1.8.0" defer></script>
-  <script src="js/pentatonic.js?v=1.8.0" defer></script>
-  <script src="js/riffs.js?v=1.8.0" defer></script>
-  <script src="js/songs.js?v=1.8.0" defer></script>
-  <script src="js/about.js?v=1.8.0" defer></script>
-  <script src="js/fretboard.js?v=1.8.0" defer></script>
-  <script src="js/caged.js?v=1.8.0" defer></script>
-  <script src="js/guitar-synth.js?v=1.8.0" defer></script>
-  <script src="js/metronome.js?v=1.8.0" defer></script>
-  <script src="js/audio.js?v=1.8.0" defer></script>
-  <script src="js/app.js?v=1.8.0" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=1.9.0">
+  <script src="js/chords.js?v=1.9.0" defer></script>
+  <script src="js/detection.js?v=1.9.0" defer></script>
+  <script src="js/pitch.js?v=1.9.0" defer></script>
+  <script src="js/tuning.js?v=1.9.0" defer></script>
+  <script src="js/stats.js?v=1.9.0" defer></script>
+  <script src="js/prefs.js?v=1.9.0" defer></script>
+  <script src="js/pentatonic.js?v=1.9.0" defer></script>
+  <script src="js/riffs.js?v=1.9.0" defer></script>
+  <script src="js/songs.js?v=1.9.0" defer></script>
+  <script src="js/about.js?v=1.9.0" defer></script>
+  <script src="js/fretboard.js?v=1.9.0" defer></script>
+  <script src="js/caged.js?v=1.9.0" defer></script>
+  <script src="js/guitar-synth.js?v=1.9.0" defer></script>
+  <script src="js/vendor/guitarpro-parser.js?v=1.9.0" defer></script>
+  <script src="js/playalong.js?v=1.9.0" defer></script>
+  <script src="js/metronome.js?v=1.9.0" defer></script>
+  <script src="js/audio.js?v=1.9.0" defer></script>
+  <script src="js/app.js?v=1.9.0" defer></script>
 </head>
 <body>
   <header class="app-header">
@@ -62,7 +64,8 @@
         Der Trainer hört dir zu, erkennt <strong>Em</strong>, <strong>Am</strong>, <strong>G</strong>,
         <strong>C</strong>, <strong>E7</strong>, <strong>F</strong>, <strong>Cadd9</strong>, <strong>Em7</strong>,
         <strong>Dsus4</strong> und <strong>A7sus4</strong> – stimmt jede Saite, prüft Pentatonik in fünf
-        Pattern, zeigt das CAGED-System und begleitet dich durch Songs.
+        Pattern, zeigt das CAGED-System, begleitet dich durch Songs und spielt
+        importierte Guitar-Pro-Tabs im Play-Along-Modus.
       </p>
       <button id="startBtn" class="btn btn-primary btn-lg" type="button">
         <span aria-hidden="true">🎤</span> Mikrofon aktivieren
@@ -86,6 +89,7 @@
         <button id="modePentatonicBtn" class="mode-btn" type="button" aria-pressed="false">Pentatonik</button>
         <button id="modeRiffBtn" class="mode-btn" type="button" aria-pressed="false">Riffs</button>
         <button id="modeSongBtn" class="mode-btn" type="button" aria-pressed="false">Songs</button>
+        <button id="modePlayBtn" class="mode-btn" type="button" aria-pressed="false">Spielen</button>
         <button id="modeHelpBtn" class="mode-btn" type="button" aria-pressed="false">Hilfe</button>
       </nav>
 
@@ -456,6 +460,81 @@
         </section>
       </div>
 
+      <div id="playView" hidden>
+        <section id="playCard" class="card play-card" aria-labelledby="playHeading">
+          <div class="card-head">
+            <div>
+              <p class="eyebrow">Play Along · Real Instrument</p>
+              <h2 id="playHeading">Song spielen</h2>
+            </div>
+            <span id="playMeta" class="pill">Demo</span>
+          </div>
+
+          <div class="play-import">
+            <label class="btn btn-secondary btn-full play-file-btn" for="playFileInput">
+              Guitar-Pro-Datei importieren
+              <input id="playFileInput" type="file" accept=".gp,.gp3,.gp4,.gp5,.gpx" hidden>
+            </label>
+            <label class="scale-field play-track-field" for="playTrackSelect">
+              Track
+              <select id="playTrackSelect" class="select"></select>
+            </label>
+          </div>
+          <p id="playInfo" class="chord-tip play-info"></p>
+
+          <div class="play-mode-row">
+            <div class="scale-type" role="group" aria-label="Spielmodus">
+              <button id="playTimedBtn" class="scale-type-btn active" type="button" aria-pressed="true">Im Takt</button>
+              <button id="playWaitBtn" class="scale-type-btn" type="button" aria-pressed="false">Note für Note</button>
+            </div>
+            <label class="scale-field play-speed-field" for="playSpeed">
+              Tempo
+              <output id="playSpeedValue" for="playSpeed">100 %</output>
+            </label>
+          </div>
+          <input id="playSpeed" class="slider" type="range" min="50" max="100" step="5" value="100">
+
+          <div id="playHighway" class="play-highway">
+            <canvas id="playCanvas" aria-label="Noten-Highway"></canvas>
+          </div>
+
+          <div class="play-readout">
+            <div class="play-current">
+              <span class="practice-target-label">Jetzt</span>
+              <span id="playTarget" class="play-target">–</span>
+            </div>
+            <div class="practice-meta">
+              <span id="playDetected">Erkannt: –</span>
+              <span id="playProgressLabel">0 / 0</span>
+            </div>
+          </div>
+
+          <div id="playMeter" class="meter practice-meter" role="progressbar"
+               aria-label="Songfortschritt" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+            <div id="playProgressFill" class="meter-fill"></div>
+          </div>
+
+          <div class="play-stats" aria-live="polite">
+            <span><strong id="playScore">0</strong> Punkte</span>
+            <span id="playCombo">Combo 0</span>
+            <span id="playAccuracy">100 %</span>
+          </div>
+
+          <div class="play-status">
+            <span id="playDot" class="status-dot" aria-hidden="true"></span>
+            <span id="playStatus">Bereit zum Spielen</span>
+          </div>
+
+          <button id="playClickBtn" class="btn btn-secondary btn-full" type="button" aria-pressed="false">Klick starten · 120 BPM</button>
+          <button id="playStart" class="btn btn-primary btn-full" type="button">Spiel starten</button>
+          <button id="playStop" class="btn btn-secondary btn-full" type="button" hidden>Stoppen</button>
+          <p id="playHint" class="chord-tip play-hint">
+            Importiere eine Guitar-Pro-Datei (.gp, .gp3, .gp4, .gp5, .gpx) oder spiele das Demo.
+            Wähle „Im Takt“ für ein Spiel mit Zeitfenstern oder „Note für Note“, wenn das Lied warten soll.
+          </p>
+        </section>
+      </div>
+
       <div id="helpView" hidden>
         <section class="card help-card">
           <div class="card-head">
@@ -559,7 +638,7 @@
 
       <div class="about-block">
         <p class="fineprint version">
-          Version <span id="appVersion">1.8.0</span> · Läuft vollständig offline
+          Version <span id="appVersion">1.9.0</span> · Läuft vollständig offline
         </p>
         <a id="repoLink" class="btn btn-secondary btn-full"
            href="https://github.com/TheRealBob52427/guitar-chord-trainer"
@@ -577,5 +656,6 @@
   <p id="practiceLive" class="sr-only" aria-live="polite" aria-atomic="true"></p>
   <p id="songLive" class="sr-only" aria-live="polite" aria-atomic="true"></p>
   <p id="riffLive" class="sr-only" aria-live="polite" aria-atomic="true"></p>
+  <p id="playLive" class="sr-only" aria-live="polite" aria-atomic="true"></p>
 </body>
 </html>

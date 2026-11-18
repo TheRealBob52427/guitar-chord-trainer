@@ -43,6 +43,13 @@
     SONGS,
     getSong,
     songLabel,
+    buildTrackOptions,
+    buildChartFromSong,
+    parseGuitarProFile,
+    createDemoChart,
+    eventLabel,
+    matchPcs,
+    PlaySession,
     APP_VERSION = '',
     REPO_URL = '',
     KOFI_URL = ''
@@ -63,12 +70,14 @@
     modePentatonicBtn: document.getElementById('modePentatonicBtn'),
     modeRiffBtn: document.getElementById('modeRiffBtn'),
     modeSongBtn: document.getElementById('modeSongBtn'),
+    modePlayBtn: document.getElementById('modePlayBtn'),
     modeHelpBtn: document.getElementById('modeHelpBtn'),
     trainerView: document.getElementById('trainerView'),
     tunerView: document.getElementById('tunerView'),
     pentatonicView: document.getElementById('pentatonicView'),
     riffView: document.getElementById('riffView'),
     songView: document.getElementById('songView'),
+    playView: document.getElementById('playView'),
     helpView: document.getElementById('helpView'),
     helpChordDemo: document.getElementById('helpChordDemo'),
     helpScaleDemo: document.getElementById('helpScaleDemo'),
@@ -140,6 +149,33 @@
     songStop: document.getElementById('songStop'),
     songHint: document.getElementById('songHint'),
     songLive: document.getElementById('songLive'),
+    playHeading: document.getElementById('playHeading'),
+    playMeta: document.getElementById('playMeta'),
+    playInfo: document.getElementById('playInfo'),
+    playFileInput: document.getElementById('playFileInput'),
+    playTrackSelect: document.getElementById('playTrackSelect'),
+    playTimedBtn: document.getElementById('playTimedBtn'),
+    playWaitBtn: document.getElementById('playWaitBtn'),
+    playSpeed: document.getElementById('playSpeed'),
+    playSpeedValue: document.getElementById('playSpeedValue'),
+    playHighway: document.getElementById('playHighway'),
+    playCanvas: document.getElementById('playCanvas'),
+    playTarget: document.getElementById('playTarget'),
+    playDetected: document.getElementById('playDetected'),
+    playProgressLabel: document.getElementById('playProgressLabel'),
+    playMeter: document.getElementById('playMeter'),
+    playProgressFill: document.getElementById('playProgressFill'),
+    playScore: document.getElementById('playScore'),
+    playCombo: document.getElementById('playCombo'),
+    playAccuracy: document.getElementById('playAccuracy'),
+    playStatus: document.getElementById('playStatus'),
+    playDot: document.getElementById('playDot'),
+    playStart: document.getElementById('playStart'),
+    playStop: document.getElementById('playStop'),
+    playClickBtn: document.getElementById('playClickBtn'),
+    playHint: document.getElementById('playHint'),
+    playCard: document.getElementById('playCard'),
+    playLive: document.getElementById('playLive'),
     riffHeading: document.getElementById('riffHeading'),
     riffMeta: document.getElementById('riffMeta'),
     riffSelect: document.getElementById('riffSelect'),
@@ -265,6 +301,27 @@
     running: false,
     cagedRootPc: storedPrefs.cagedRoot,
     audioPreviewUntil: 0,
+    play: {
+      song: null,
+      tracks: [],
+      trackIndex: 0,
+      chart: null,
+      session: null,
+      mode: storedPrefs.playMode,
+      speed: storedPrefs.playSpeed / 100,
+      active: false,
+      finished: false,
+      frame: null,
+      needRelease: false,
+      lastLevelDb: null,
+      lastHitPc: null,
+      wrongLatched: false,
+      lastDetected: '',
+      lastStatus: '',
+      statusHoldUntil: 0,
+      sourceLabel: 'Demo',
+      fileError: ''
+    },
     selectedDeviceId: storedPrefs.deviceId,
     stats: Stats.loadStats(window.localStorage, CHORD_ORDER),
     statusHoldUntil: 0,
@@ -277,6 +334,7 @@
     onAttempt: handleAttempt,
     onTrackEnded: handleTrackEnded,
     onPitchUpdate: handlePitchUpdate,
+    onGameUpdate: handleGameUpdate,
     onError: () => {}
   });
 
@@ -317,6 +375,8 @@
         backward: state.scale.backward
       },
       cagedRoot: state.cagedRootPc,
+      playMode: state.play.mode,
+      playSpeed: Math.round(state.play.speed * 100),
       riffId: state.riff.riffId,
       deviceId: state.selectedDeviceId
     });
@@ -612,13 +672,14 @@
   /* ---------- Modus & Stimmgerät ---------- */
 
   function applyMode(mode) {
-    const next = (mode === 'tuner' || mode === 'pentatonic' || mode === 'riff' || mode === 'song' || mode === 'help')
+    const next = (mode === 'tuner' || mode === 'pentatonic' || mode === 'riff' || mode === 'song' || mode === 'play' || mode === 'help')
       ? mode
       : 'trainer';
     const tunerActive = next === 'tuner';
     const pentatonicActive = next === 'pentatonic';
     const riffActive = next === 'riff';
     const songActive = next === 'song';
+    const playActive = next === 'play';
     const helpActive = next === 'help';
     state.mode = next;
     engine.stopReferenceTone();
@@ -629,12 +690,14 @@
     els.modePentatonicBtn.classList.toggle('active', pentatonicActive);
     els.modeRiffBtn.classList.toggle('active', riffActive);
     els.modeSongBtn.classList.toggle('active', songActive);
+    els.modePlayBtn.classList.toggle('active', playActive);
     els.modeHelpBtn.classList.toggle('active', helpActive);
     els.modeTrainerBtn.setAttribute('aria-pressed', String(next === 'trainer'));
     els.modeTunerBtn.setAttribute('aria-pressed', String(tunerActive));
     els.modePentatonicBtn.setAttribute('aria-pressed', String(pentatonicActive));
     els.modeRiffBtn.setAttribute('aria-pressed', String(riffActive));
     els.modeSongBtn.setAttribute('aria-pressed', String(songActive));
+    els.modePlayBtn.setAttribute('aria-pressed', String(playActive));
     els.modeHelpBtn.setAttribute('aria-pressed', String(helpActive));
 
     els.trainerView.hidden = next !== 'trainer';
@@ -642,10 +705,12 @@
     els.pentatonicView.hidden = !pentatonicActive;
     els.riffView.hidden = !riffActive;
     els.songView.hidden = !songActive;
+    els.playView.hidden = !playActive;
     els.helpView.hidden = !helpActive;
 
     if (!songActive) stopSong();
     if (!riffActive) stopRiff();
+    if (!playActive) stopPlay();
 
     if (tunerActive) {
       stopPractice();
@@ -675,6 +740,12 @@
       stopSong();
       engine.setMode('scale');
       initRiffView();
+    } else if (playActive) {
+      stopPractice();
+      metronome.stop();
+      stopSong();
+      engine.setMode('game');
+      initPlayView();
     } else if (helpActive) {
       stopPractice();
       metronome.stop();
@@ -2270,7 +2341,639 @@
     }
   }
 
-  /* ---------- Mikrofon ---------- */
+  /* ---------- Play-Along / Real-Instrument-Gameplay ---------- */
+
+  function setPlayStatus(text, kind) {
+    if (!els.playStatus) return;
+    if (els.playStatus.textContent !== text) els.playStatus.textContent = text;
+    els.playDot.className = 'status-dot' + (kind ? ` is-${kind}` : '');
+    state.play.lastStatus = text;
+  }
+
+  function formatDuration(ms) {
+    const seconds = Math.max(0, Math.round(ms / 1000));
+    const minutes = Math.floor(seconds / 60);
+    return `${minutes}:${String(seconds % 60).padStart(2, '0')}`;
+  }
+
+  function updatePlayModeButtons() {
+    const timed = state.play.mode === 'timed';
+    els.playTimedBtn.classList.toggle('active', timed);
+    els.playWaitBtn.classList.toggle('active', !timed);
+    els.playTimedBtn.setAttribute('aria-pressed', String(timed));
+    els.playWaitBtn.setAttribute('aria-pressed', String(!timed));
+  }
+
+  function updatePlaySpeed() {
+    const percent = Math.round(state.play.speed * 100);
+    els.playSpeed.value = String(percent);
+    els.playSpeedValue.textContent = `${percent} %`;
+    els.playSpeed.style.setProperty('--fill', `${((percent - 50) / 50) * 100}%`);
+  }
+
+  function updatePlayClickButton() {
+    if (!els.playClickBtn) return;
+    const bpm = state.play.chart ? state.play.chart.bpm : 120;
+    const playing = metronome.playing;
+    els.playClickBtn.textContent = `${playing ? 'Klick stoppen' : 'Klick starten'} · ${bpm} BPM`;
+    els.playClickBtn.setAttribute('aria-pressed', String(playing));
+    els.playClickBtn.classList.toggle('is-playing', playing);
+  }
+
+  async function togglePlayClick() {
+    if (metronome.playing) {
+      metronome.stop();
+      updatePlayClickButton();
+      return;
+    }
+    const chart = state.play.chart;
+    if (!chart) return;
+    try {
+      metronome.setBpm(chart.bpm);
+      await metronome.start();
+    } catch (error) {
+      toast('Klick konnte nicht gestartet werden.');
+    }
+    updatePlayClickButton();
+  }
+
+  function setPlayMode(mode) {
+    if (state.play.active) return;
+    state.play.mode = mode === 'wait' ? 'wait' : 'timed';
+    state.play.session = null;
+    updatePlayModeButtons();
+    resetPlayStats();
+    drawPlayHighway(null);
+    setPlayStatus(state.play.mode === 'wait' ? 'Note für Note: Das Lied wartet.' : 'Im Takt: Zeitfenster aktiv.', '');
+    persistPrefs();
+  }
+
+  function setPlaySpeed(value) {
+    if (state.play.active) return;
+    const percent = Math.max(50, Math.min(100, Math.round(Number(value) || 100)));
+    state.play.speed = percent / 100;
+    updatePlaySpeed();
+    drawPlayHighway(null);
+    persistPrefs();
+  }
+
+  function resetPlayStats() {
+    if (!els.playScore) return;
+    els.playScore.textContent = '0';
+    els.playCombo.textContent = 'Combo 0';
+    els.playAccuracy.textContent = '100 %';
+    els.playProgressLabel.textContent = state.play.chart
+      ? `0 / ${state.play.chart.events.length}`
+      : '0 / 0';
+    els.playProgressFill.style.width = '0%';
+    els.playMeter.setAttribute('aria-valuenow', '0');
+    els.playTarget.textContent = state.play.chart && state.play.chart.events[0]
+      ? eventLabel(state.play.chart.events[0])
+      : '–';
+    els.playDetected.textContent = 'Erkannt: –';
+  }
+
+  function updatePlayTrackSelect() {
+    if (!els.playTrackSelect) return;
+    els.playTrackSelect.textContent = '';
+    if (state.play.song && state.play.tracks.length) {
+      state.play.tracks.forEach((track) => {
+        const option = new Option(`${track.name} · ${track.stringCount} Saiten`, String(track.index));
+        els.playTrackSelect.add(option);
+      });
+      els.playTrackSelect.value = String(state.play.trackIndex);
+      els.playTrackSelect.disabled = state.play.active || state.play.tracks.length < 2;
+    } else {
+      els.playTrackSelect.add(new Option('Demo · Seven Nation Army', 'demo'));
+      els.playTrackSelect.value = 'demo';
+      els.playTrackSelect.disabled = true;
+    }
+  }
+
+  function applyPlayChart(chart, sourceLabel) {
+    state.play.chart = chart;
+    state.play.session = null;
+    state.play.finished = false;
+    state.play.lastDetected = '';
+    state.play.sourceLabel = sourceLabel || '';
+    els.playHeading.textContent = chart.title;
+    els.playMeta.textContent = `${chart.artist || 'Guitar Pro'} · ${chart.trackName}`;
+    const tuning = Array.isArray(chart.tuningNames) ? chart.tuningNames.join(' ') : 'E A D G B E';
+    els.playInfo.textContent = `${sourceLabel ? `${sourceLabel} · ` : ''}` +
+      `${chart.noteCount} Noten · ${formatDuration(chart.durationMs)} · ` +
+      `${chart.stringCount} Saiten (${tuning}) · ${chart.bpm} BPM`;
+    updatePlayTrackSelect();
+    updatePlayModeButtons();
+    updatePlaySpeed();
+    updatePlayClickButton();
+    resetPlayStats();
+    drawPlayHighway(null);
+    els.playStart.hidden = false;
+    els.playStart.textContent = 'Spiel starten';
+    els.playStop.hidden = true;
+    setPlayStatus('Bereit zum Spielen', '');
+    if (els.playHint) {
+      els.playHint.textContent = chart.source === 'guitar-pro'
+        ? 'Spiele die angezeigten Noten. „Im Takt“ bewertet auch das Timing, „Note für Note“ wartet auf jeden Treffer.'
+        : 'Demo-Riff: Spiele die angezeigten Noten. Importiere oben eine Guitar-Pro-Datei für eigene Songs.';
+    }
+    if (els.playLive) {
+      els.playLive.textContent = `${chart.title} geladen: ${chart.noteCount} Noten.`;
+    }
+  }
+
+  function loadPlayDemo() {
+    state.play.song = null;
+    state.play.tracks = [];
+    state.play.trackIndex = 0;
+    applyPlayChart(createDemoChart(), 'Demo');
+  }
+
+  function initPlayView() {
+    if (!state.play.chart) {
+      loadPlayDemo();
+      return;
+    }
+    updatePlayModeButtons();
+    updatePlaySpeed();
+    updatePlayTrackSelect();
+    updatePlayClickButton();
+    resetPlayStats();
+    if (!state.play.active) {
+      els.playStart.hidden = false;
+      els.playStart.textContent = 'Spiel starten';
+      els.playStop.hidden = true;
+      setPlayStatus('Bereit zum Spielen', '');
+    }
+    drawPlayHighway(null);
+  }
+
+  async function importPlayFile(file) {
+    if (!file) return;
+    setPlayStatus('Guitar-Pro-Datei wird gelesen …', 'listening');
+    try {
+      const buffer = await file.arrayBuffer();
+      const song = parseGuitarProFile(buffer);
+      const tracks = buildTrackOptions(song);
+      if (!tracks.length) throw new Error('Keine Gitarren- oder Bass-Spuren gefunden.');
+
+      const preferred = tracks.find((track) => /guitar|gtr|lead|rhythm|gitarre|acoustic|disto|clean/i.test(track.name)) ||
+        tracks.find((track) => track.stringCount === 6 && !/voice|choir|strings|pipe|timpani|brass/i.test(track.name)) ||
+        tracks[0];
+      state.play.song = song;
+      state.play.tracks = tracks;
+      state.play.trackIndex = preferred.index;
+      const chart = buildChartFromSong(song, preferred.index);
+      applyPlayChart(chart, file.name);
+      toast(`${chart.title}: ${chart.noteCount} Noten importiert`);
+    } catch (error) {
+      const message = error && error.message ? error.message : 'Unbekannter Fehler';
+      setPlayStatus('Import fehlgeschlagen', 'warn');
+      toast(`Guitar-Pro-Import fehlgeschlagen: ${message}`);
+    } finally {
+      els.playFileInput.value = '';
+    }
+  }
+
+  function selectPlayTrack(trackIndex) {
+    if (!state.play.song || state.play.active) return;
+    const index = Number(trackIndex);
+    if (!Number.isFinite(index)) return;
+    try {
+      const chart = buildChartFromSong(state.play.song, index);
+      state.play.trackIndex = index;
+      applyPlayChart(chart, state.play.sourceLabel);
+    } catch (error) {
+      toast(`Track konnte nicht geladen werden: ${error.message}`);
+    }
+  }
+
+  function setPlayControlsDisabled(disabled) {
+    [els.playFileInput, els.playTrackSelect, els.playTimedBtn, els.playWaitBtn, els.playSpeed]
+      .forEach((element) => {
+        if (!element) return;
+        element.disabled = disabled;
+      });
+  }
+
+  function startPlay() {
+    if (!state.play.chart) loadPlayDemo();
+    if (!state.running) {
+      toast('Bitte zuerst das Mikrofon aktivieren.');
+      return;
+    }
+    if (state.play.active) stopPlay();
+    const chart = state.play.chart;
+    if (!chart || !chart.events.length) {
+      toast('Keine Noten im Chart.');
+      return;
+    }
+
+    state.play.session = new PlaySession(chart, {
+      mode: state.play.mode,
+      speed: state.play.speed
+    });
+    state.play.session.start(performance.now());
+    state.play.active = true;
+    state.play.finished = false;
+    state.play.needRelease = false;
+    state.play.lastLevelDb = null;
+    state.play.lastHitPc = null;
+    state.play.wrongLatched = false;
+    state.play.lastDetected = '';
+    state.play.statusHoldUntil = 0;
+
+    engine.stopToneSequence();
+    engine.setMode('game');
+    engine.resetDetection();
+
+    setPlayControlsDisabled(true);
+    els.playStart.hidden = true;
+    els.playStop.hidden = false;
+    els.playCard.classList.remove('is-good', 'is-warn');
+    resetPlayStats();
+    setPlayStatus(state.play.mode === 'wait' ? 'Warte auf den ersten Ton …' : 'Los! Spiele die Noten im Takt.', 'listening');
+    drawPlayHighway(null);
+    state.play.frame = window.requestAnimationFrame(gameLoop);
+    if (els.playLive) {
+      els.playLive.textContent = `${chart.title} gestartet im Modus ${state.play.mode === 'wait' ? 'Note für Note' : 'Im Takt'}.`;
+    }
+  }
+
+  function stopPlay() {
+    state.play.active = false;
+    state.play.finished = false;
+    state.play.session = null;
+    state.play.needRelease = false;
+    state.play.lastLevelDb = null;
+    state.play.lastHitPc = null;
+    state.play.wrongLatched = false;
+    if (state.play.frame !== null) {
+      window.cancelAnimationFrame(state.play.frame);
+      state.play.frame = null;
+    }
+    engine.stopToneSequence();
+    metronome.stop();
+    setPlayControlsDisabled(false);
+    els.playStart.hidden = false;
+    els.playStart.textContent = 'Nochmal starten';
+    els.playStop.hidden = true;
+    els.playTarget.textContent = '–';
+    els.playDetected.textContent = 'Erkannt: –';
+    els.playCard.classList.remove('is-good', 'is-warn');
+    setPlayStatus('Gestoppt', '');
+    drawPlayHighway(null);
+  }
+
+  function finishPlay() {
+    const session = state.play.session;
+    if (!session) return;
+    state.play.active = false;
+    state.play.finished = true;
+    if (state.play.frame !== null) {
+      window.cancelAnimationFrame(state.play.frame);
+      state.play.frame = null;
+    }
+    engine.stopToneSequence();
+    metronome.stop();
+    setPlayControlsDisabled(false);
+    els.playStart.hidden = false;
+    els.playStart.textContent = 'Nochmal starten';
+    els.playStop.hidden = true;
+    els.playCard.classList.add('is-good');
+    const summary = session.summary();
+    els.playScore.textContent = String(summary.score);
+    els.playCombo.textContent = `Combo ${summary.combo}`;
+    els.playAccuracy.textContent = `${summary.accuracy} %`;
+    els.playProgressFill.style.width = '100%';
+    els.playMeter.setAttribute('aria-valuenow', '100');
+    els.playProgressLabel.textContent = `${summary.hits} / ${session.chart.events.length}`;
+    setPlayStatus(`Song geschafft · ${summary.accuracy} % · ${summary.score} Punkte`, 'good');
+    if (els.playHint) {
+      els.playHint.textContent = `${summary.hits} Treffer, ${summary.misses} verpasst, ` +
+        `${summary.wrong} falsche Anschläge · beste Combo ${summary.combo}.`;
+    }
+    if (navigator.vibrate) navigator.vibrate([40, 50, 80]);
+    drawPlayHighway(null);
+  }
+
+  function gameLoop() {
+    if (!state.play.active || !state.play.session) return;
+    const now = performance.now();
+    const session = state.play.session;
+    session.update(now);
+    const display = session.displayMs(now);
+    drawPlayHighway(display);
+    updatePlayHud(now);
+    if (session.finished) {
+      finishPlay();
+      return;
+    }
+    state.play.frame = window.requestAnimationFrame(gameLoop);
+  }
+
+  function updatePlayHud(now) {
+    const session = state.play.session;
+    if (!session) return;
+    const event = session.currentEvent;
+    const summary = session.summary();
+    els.playScore.textContent = String(summary.score);
+    els.playCombo.textContent = `Combo ${summary.combo}`;
+    els.playAccuracy.textContent = `${summary.accuracy} %`;
+    els.playProgressLabel.textContent = `${summary.hits + summary.misses} / ${session.chart.events.length}`;
+    const percent = Math.round(summary.progress * 100);
+    els.playProgressFill.style.width = `${percent}%`;
+    els.playMeter.setAttribute('aria-valuenow', String(percent));
+
+    if (!event) {
+      els.playTarget.textContent = '✓';
+      return;
+    }
+    const label = eventLabel(event);
+    els.playTarget.textContent = label;
+    if (performance.now() < state.play.statusHoldUntil) return;
+    if (state.play.mode === 'wait') {
+      setPlayStatus(`Warte auf ${label} …`, 'listening');
+    } else {
+      const remaining = event.startMs - session.elapsed(now);
+      if (remaining > 400 && session.index === 0) {
+        setPlayStatus(`Bereit in ${Math.ceil(remaining / 1000)} …`, 'listening');
+      } else if (remaining > 0) {
+        setPlayStatus(`Gleich: ${label}`, 'listening');
+      } else {
+        setPlayStatus(`Jetzt: ${label}`, 'listening');
+      }
+    }
+  }
+
+  function chromaPitchClasses(chroma) {
+    if (!chroma || !chroma.length) return [];
+    let max = 0;
+    for (let i = 0; i < 12; i += 1) max = Math.max(max, chroma[i]);
+    if (max <= 0) return [];
+    const threshold = Math.max(0.08, max * 0.28);
+    const pcs = [];
+    for (let i = 0; i < 12; i += 1) {
+      if (chroma[i] >= threshold) pcs.push(i);
+    }
+    return pcs;
+  }
+
+  function handleGameUpdate(update) {
+    if (state.mode !== 'play') return;
+    if (!state.play.active || !state.play.session) {
+      if (update.silent) els.playDetected.textContent = 'Erkannt: –';
+      return;
+    }
+    const session = state.play.session;
+    const event = session.currentEvent;
+    if (!event) return;
+
+    const previousLevel = state.play.lastLevelDb;
+    state.play.lastLevelDb = update.levelDb;
+    const levelRise = previousLevel !== null && update.levelDb > -48 && update.levelDb - previousLevel > 5;
+    const levelDrop = previousLevel !== null && previousLevel - update.levelDb > 8;
+    const released = update.silent || update.levelDb < -55 ||
+      (!update.pitch && (update.levelDb < -45 || levelDrop));
+
+    if (state.play.needRelease) {
+      if (released || levelRise) {
+        state.play.needRelease = false;
+        state.play.lastHitPc = null;
+      } else if (!event.isChord && update.pitch) {
+        const note = frequencyToNote(update.pitch.frequency);
+        const pc = note ? ((note.midi % 12) + 12) % 12 : null;
+        if (pc !== null && pc !== state.play.lastHitPc) {
+          state.play.needRelease = false;
+          state.play.lastHitPc = null;
+        }
+      }
+    }
+    if (released) state.play.wrongLatched = false;
+
+    if (update.silent) {
+      els.playDetected.textContent = 'Erkannt: –';
+      return;
+    }
+
+    let detectedPcs = [];
+    let detectedLabel = '';
+    if (event.isChord) {
+      detectedPcs = chromaPitchClasses(update.chroma);
+      detectedLabel = detectedPcs.map((pc) => NOTE_NAMES[pc]).join(' + ');
+    } else if (update.pitch) {
+      const note = frequencyToNote(update.pitch.frequency);
+      if (note) {
+        detectedPcs = [((note.midi % 12) + 12) % 12];
+        detectedLabel = note.name;
+      }
+    }
+    if (!detectedPcs.length) {
+      if (update.levelDb > -50) els.playDetected.textContent = 'Erkannt: ?';
+      return;
+    }
+    els.playDetected.textContent = `Erkannt: ${detectedLabel}`;
+
+    if (matchPcs(event.pcs, detectedPcs)) {
+      state.play.wrongLatched = false;
+      if (!state.play.needRelease) {
+        const result = session.judge(performance.now(), detectedPcs);
+        if (result && result.hit) {
+          state.play.needRelease = true;
+          state.play.lastHitPc = event.pcs[0];
+          onPlayHit(result);
+        }
+      }
+    } else if (!state.play.wrongLatched && update.levelDb > -50) {
+      state.play.wrongLatched = true;
+      session.recordWrong();
+      const expected = event.isChord ? event.pcs.map((pc) => NOTE_NAMES[pc]).join(' + ') : eventLabel(event);
+      const heard = detectedLabel || '?';
+      els.playCard.classList.add('is-warn');
+      setPlayStatus(`Erwartet ${expected} – gehört ${heard}`, 'warn');
+      state.play.statusHoldUntil = performance.now() + 900;
+      if (els.playHint) els.playHint.textContent = `Erwartet ${expected} – gehört ${heard}. Weiter versuchen.`;
+    }
+  }
+
+  function onPlayHit(result) {
+    const session = state.play.session;
+    if (!session) return;
+    els.playCard.classList.remove('is-warn');
+    els.playCard.classList.add('is-good');
+    pulsePlayCard();
+    window.setTimeout(() => els.playCard.classList.remove('is-good'), 500);
+    const event = result.event;
+    const detail = event.isChord
+      ? event.pcs.map((pc) => NOTE_NAMES[pc]).join(' + ')
+      : `${event.notes[0].name} · ${event.notes[0].fret}. Bund`;
+    setPlayStatus(`${result.qualityLabel} ✓ ${detail} · +${result.points}`, 'good');
+    state.play.statusHoldUntil = performance.now() + 650;
+    if (els.playHint) {
+      els.playHint.textContent = state.play.mode === 'wait'
+        ? `Treffer: ${detail}. Weiter mit dem nächsten Ton.`
+        : `Treffer: ${detail} (${Math.round(result.deltaMs)} ms).`;
+    }
+    if (navigator.vibrate) navigator.vibrate(18);
+    if (els.playLive) els.playLive.textContent = `${detail} richtig.`;
+    if (session.finished) {
+      finishPlay();
+    } else if (state.play.mode === 'wait') {
+      const next = session.currentEvent;
+      if (next) {
+        els.playTarget.textContent = eventLabel(next);
+        drawPlayHighway(session.displayMs(performance.now()));
+      }
+    }
+  }
+
+  function pulsePlayCard() {
+    els.playCard.classList.remove('pulse');
+    void els.playCard.offsetWidth;
+    els.playCard.classList.add('pulse');
+    window.setTimeout(() => els.playCard.classList.remove('pulse'), 500);
+  }
+
+  function roundRect(ctx, x, y, width, height, radius) {
+    const r = Math.min(radius, width / 2, height / 2);
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + width, y, x + width, y + height, r);
+    ctx.arcTo(x + width, y + height, x, y + height, r);
+    ctx.arcTo(x, y + height, x, y, r);
+    ctx.arcTo(x, y, x + width, y, r);
+    ctx.closePath();
+  }
+
+  function drawPlayHighway(displayMs) {
+    const canvas = els.playCanvas;
+    const chart = state.play.chart;
+    if (!canvas) return;
+    const width = canvas.clientWidth || 320;
+    const height = canvas.clientHeight || 360;
+    const dpr = Math.min(2.5, window.devicePixelRatio || 1);
+    if (canvas.width !== Math.round(width * dpr) || canvas.height !== Math.round(height * dpr)) {
+      canvas.width = Math.round(width * dpr);
+      canvas.height = Math.round(height * dpr);
+    }
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, width, height);
+
+    const gradient = ctx.createLinearGradient(0, 0, 0, height);
+    gradient.addColorStop(0, '#101020');
+    gradient.addColorStop(1, '#0b0b16');
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, width, height);
+    if (!chart) return;
+
+    const laneCount = Math.max(1, chart.stringCount || 6);
+    const laneWidth = width / laneCount;
+    const topY = 12;
+    const hitY = height - 58;
+    const display = displayMs === null
+      ? (chart.events[0] ? chart.events[0].startMs - 900 : 0)
+      : displayMs;
+    const fallMs = 2800 / Math.max(0.5, state.play.speed);
+    const session = state.play.session;
+    const currentIndex = session ? session.index : 0;
+
+    // Spuren
+    for (let lane = 0; lane <= laneCount; lane += 1) {
+      const x = lane * laneWidth;
+      ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(x, topY);
+      ctx.lineTo(x, hitY);
+      ctx.stroke();
+    }
+    // Bund-/Saiten-Labels
+    ctx.textAlign = 'center';
+    ctx.font = '600 10px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+    for (let lane = 0; lane < laneCount; lane += 1) {
+      const label = chart.tuningNames && chart.tuningNames[lane] ? chart.tuningNames[lane] : '';
+      ctx.fillStyle = 'rgba(255,255,255,0.45)';
+      ctx.fillText(label, lane * laneWidth + laneWidth / 2, height - 20);
+    }
+
+    // Trefferlinie
+    ctx.strokeStyle = 'rgba(233,69,96,0.9)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(0, hitY);
+    ctx.lineTo(width, hitY);
+    ctx.stroke();
+    ctx.fillStyle = 'rgba(233,69,96,0.12)';
+    ctx.fillRect(0, hitY - 3, width, 6);
+
+    // Noten
+    const colorFor = (index, note) => {
+      if (index < currentIndex) return 'rgba(74,222,128,0.35)';
+      if (index === currentIndex) return '#ff5f78';
+      return note.isChord ? '#8f8fb8' : '#c9c9e6';
+    };
+
+    for (let index = 0; index < chart.events.length; index += 1) {
+      const event = chart.events[index];
+      const time = event.startMs - display;
+      if (time > fallMs) break;
+      if (time < -420) continue;
+      const y = hitY - (time / fallMs) * (hitY - topY);
+      const isCurrent = index === currentIndex;
+      const alpha = index < currentIndex ? 0.45 : 1;
+      ctx.globalAlpha = alpha;
+      if (event.isChord && event.notes.length > 1) {
+        const first = event.notes[0];
+        const last = event.notes[event.notes.length - 1];
+        ctx.strokeStyle = colorFor(index, event);
+        ctx.lineWidth = isCurrent ? 4 : 2;
+        ctx.beginPath();
+        ctx.moveTo(first.string * laneWidth + laneWidth / 2, y);
+        ctx.lineTo(last.string * laneWidth + laneWidth / 2, y);
+        ctx.stroke();
+      }
+      event.notes.forEach((note) => {
+        const lane = Math.max(0, Math.min(laneCount - 1, note.string));
+        const x = lane * laneWidth + laneWidth * 0.14;
+        const blockWidth = laneWidth * 0.72;
+        ctx.fillStyle = colorFor(index, event);
+        roundRect(ctx, x, y - 8, blockWidth, 16, 5);
+        ctx.fill();
+        if (isCurrent) {
+          ctx.strokeStyle = 'rgba(255,255,255,0.85)';
+          ctx.lineWidth = 1.5;
+          roundRect(ctx, x, y - 8, blockWidth, 16, 5);
+          ctx.stroke();
+        }
+        if (blockWidth > 30) {
+          ctx.fillStyle = index < currentIndex ? '#0b0b16' : '#101020';
+          ctx.font = '700 8px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+          ctx.fillText(`${note.name}${note.fret ? note.fret : ''}`, x + blockWidth / 2, y + 3);
+        }
+      });
+      ctx.globalAlpha = 1;
+    }
+
+    // Count-in
+    const firstEvent = chart.events[0];
+    if (firstEvent && display < firstEvent.startMs - 300 && (!session || session.index === 0)) {
+      const remaining = Math.ceil((firstEvent.startMs - display) / 1000);
+      ctx.fillStyle = 'rgba(255,255,255,0.75)';
+      ctx.font = '700 22px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+      ctx.fillText(`Start in ${Math.max(0, remaining)}`, width / 2, topY + 36);
+    }
+
+    // Fortschrittslinie am Rand
+    if (session) {
+      const progress = session.progress();
+      ctx.fillStyle = 'rgba(233,69,96,0.55)';
+      ctx.fillRect(0, 0, width * progress, 3);
+    }
+  }
+
+
 
   async function startMic() {
     if (!window.isSecureContext) {
@@ -2551,6 +3254,7 @@
     els.modePentatonicBtn.addEventListener('click', () => applyMode('pentatonic'));
     els.modeRiffBtn.addEventListener('click', () => applyMode('riff'));
     els.modeSongBtn.addEventListener('click', () => applyMode('song'));
+    els.modePlayBtn.addEventListener('click', () => applyMode('play'));
     els.modeHelpBtn.addEventListener('click', () => applyMode('help'));
     els.refToneBtn.addEventListener('click', playReferenceTone);
     els.tunerAuto.addEventListener('change', (event) => setTunerAuto(event.target.checked));
@@ -2570,6 +3274,24 @@
     els.songStop.addEventListener('click', () => {
       stopSong();
       toast('Song gestoppt');
+    });
+
+    els.playFileInput.addEventListener('change', (event) => {
+      const file = event.target.files && event.target.files[0];
+      if (file) importPlayFile(file);
+    });
+    els.playTrackSelect.addEventListener('change', (event) => selectPlayTrack(event.target.value));
+    els.playTimedBtn.addEventListener('click', () => setPlayMode('timed'));
+    els.playWaitBtn.addEventListener('click', () => setPlayMode('wait'));
+    els.playSpeed.addEventListener('input', (event) => setPlaySpeed(event.target.value));
+    els.playStart.addEventListener('click', startPlay);
+    els.playClickBtn.addEventListener('click', togglePlayClick);
+    els.playStop.addEventListener('click', () => {
+      stopPlay();
+      toast('Spiel gestoppt');
+    });
+    window.addEventListener('resize', () => {
+      if (state.mode === 'play') drawPlayHighway(state.play.session ? state.play.session.displayMs(performance.now()) : null);
     });
 
     els.riffSelect.addEventListener('change', (event) => {
